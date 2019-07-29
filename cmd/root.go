@@ -58,5 +58,6 @@ func setupFlags(cmd *cobra.Command) {
 
 	// Server configuration
 	flagSet.StringVar(&conf.RemoteAddr, "remote_addr", "", "remote master address, e.g. root@ip")
-	flagSet.StringVar(&conf.NameSuffix, "name_suffix", "", "cluster name suffix")
+	flagSet.IntVar(&conf.LocalPort, "local_port", 0, "local forwarding port, e.g. 7001")
+	flagSet.StringVar(&conf.NameSuffix, "name_suffix", "", "cluster name suffix, e.g. dev")
 }
