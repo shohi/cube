@@ -9,6 +9,9 @@ Only AWS cluster is supported now.
 
 cubelet --remote_master_ip 172.xxx --name_suffix dev 
 
+# then use kubens/kubectx to switch cluster
+kubectx
+
 ```
 
 ## Note
