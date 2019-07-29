@@ -4,8 +4,11 @@ kubectl configuration manipulation tools, which fetches `~/.kube/config` from re
 ## Usage
 
 ```terminal
+# example
+cube --remote_ip=core@172.xxx --local_port=7001 --ssh-via user@jump-server --name_suffix=dev
 
-cube --remote_ip=172.xxx --local_port=7001 --name_suffix=dev
+# help
+cube --help
 
 # then use kubens/kubectx to switch cluster
 kubectx
