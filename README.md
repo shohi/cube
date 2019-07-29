@@ -1,5 +1,7 @@
 # cubelet (WIP)
-kubectl configuration manipulation tools for remote cluster. Only AWS cluster is supported now.
+kubectl configuration manipulation tools, which fetches kubeconfig for remote K8s cluster and merges into local one.
+
+Only AWS cluster is supported now.
 
 ## Usage
 
