@@ -5,7 +5,7 @@ kubectl configuration manipulation tools, which fetches `~/.kube/config` from re
 
 ```terminal
 
-cube --remote_ip 172.xxx --name_suffix dev
+cube --remote_ip=172.xxx --local_port=7001 --name_suffix=dev
 
 # then use kubens/kubectx to switch cluster
 kubectx
@@ -13,6 +13,6 @@ kubectx
 ```
 
 ## Note
-1. `cubelet` leverages `SSH` and `SCP` for transfering files from remote cluster. Make sure SSH correctly configured.
+1. `cube` leverages `SSH` and `SCP` for transfering files from remote cluster. Make sure SSH correctly configured.
 
 2. Only AWS cluster is supported now.
