@@ -1,4 +1,4 @@
-The MIT License (MIT)
+/*
 
 Copyright © 2019 Shohi Wang <oshohi@gmail.com>
 
@@ -19,3 +19,44 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+*/
+package cmd
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/shohi/cube/config"
+	"github.com/spf13/cobra"
+)
+
+var conf = config.Config{}
+
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:   "cube",
+	Short: "kubectl config manipulation tools",
+	Run: func(cmd *cobra.Command, args []string) {
+		// TODO
+	},
+}
+
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	setupFlags(rootCmd)
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+// setupFlags sets flags for comand line
+func setupFlags(cmd *cobra.Command) {
+	flagSet := cmd.Flags()
+
+	// Server configuration
+	flagSet.StringVar(&conf.RemoteAddr, "remote_addr", "", "remote master address, e.g. root@ip")
+	flagSet.StringVar(&conf.NameSuffix, "name_suffix", "", "cluster name suffix")
+}

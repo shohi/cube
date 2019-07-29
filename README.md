@@ -5,7 +5,7 @@ kubectl configuration manipulation tools, which fetches `~/.kube/config` from re
 
 ```terminal
 
-cube --remote_master_ip 172.xxx --name_suffix dev 
+cube --remote_ip 172.xxx --name_suffix dev
 
 # then use kubens/kubectx to switch cluster
 kubectx
