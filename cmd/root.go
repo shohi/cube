@@ -26,8 +26,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shohi/cube/config"
 	"github.com/spf13/cobra"
+
+	"github.com/shohi/cube/pkg/config"
+	"github.com/shohi/cube/pkg/kube"
 )
 
 var conf = config.Config{}
@@ -36,8 +38,8 @@ var conf = config.Config{}
 var rootCmd = &cobra.Command{
 	Use:   "cube",
 	Short: "kubectl config manipulation tools",
-	Run: func(cmd *cobra.Command, args []string) {
-		// TODO
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return kube.Fuse(conf)
 	},
 }
 
@@ -57,10 +59,10 @@ func setupFlags(cmd *cobra.Command) {
 	flagSet := cmd.Flags()
 
 	// Server configuration
-	flagSet.StringVar(&conf.RemoteAddr, "remote_addr", "", "remote master address, e.g. root@ip")
-	flagSet.IntVar(&conf.LocalPort, "local_port", 0, "local forwarding port, e.g. 7001")
-	flagSet.StringVar(&conf.SSHVia, "ssh_via", "", "ssh jump server, e.g. user@jump. If not set, SSH_VIA env will be used. ")
-	flagSet.StringVar(&conf.NameSuffix, "name_suffix", "", "cluster name suffix, e.g. dev")
+	flagSet.StringVar(&conf.RemoteAddr, "remote-addr", "", "remote master address, e.g. root@ip")
+	flagSet.IntVar(&conf.LocalPort, "local-port", 0, "local forwarding port, e.g. 7001")
+	flagSet.StringVar(&conf.SSHVia, "ssh-via", "", "ssh jump server, e.g. user@jump. If not set, SSH_VIA env will be used. ")
+	flagSet.StringVar(&conf.NameSuffix, "name-suffix", "", "cluster name suffix, e.g. dev")
 
-	flagSet.BoolVar(&conf.DryRun, "dry_run", false, "dry-run mode. validate config and then exit.")
+	flagSet.BoolVar(&conf.DryRun, "dry-run", false, "dry-run mode. validate config and then exit.")
 }

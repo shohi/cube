@@ -5,7 +5,12 @@ kubectl configuration manipulation tools, which fetches `~/.kube/config` from re
 
 ```terminal
 # example
-cube --remote_ip=core@172.xxx --local_port=7001 --ssh-via user@jump-server --name_suffix=dev
+cube \
+    --remote-addr=core@172.xxx \
+    --local-port=7001 \
+    --ssh-via user@jump-server \
+    --name-suffix=dev \
+    --dry-run=false
 
 # help
 cube --help
