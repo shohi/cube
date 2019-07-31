@@ -58,11 +58,11 @@ func Execute() {
 func setupFlags(cmd *cobra.Command) {
 	flagSet := cmd.Flags()
 
-	// Server configuration
-	flagSet.StringVar(&conf.RemoteAddr, "remote-addr", "", "remote master address, e.g. root@ip")
-	flagSet.IntVar(&conf.LocalPort, "local-port", 0, "local forwarding port, e.g. 7001")
+	flagSet.StringVar(&conf.RemoteAddr, "remote-addr", "", "remote master address, e.g. root@ip.")
+	flagSet.IntVar(&conf.LocalPort, "local-port", 0, "local forwarding port, e.g. 7001.")
 	flagSet.StringVar(&conf.SSHVia, "ssh-via", "", "ssh jump server, e.g. user@jump. If not set, SSH_VIA env will be used. ")
-	flagSet.StringVar(&conf.NameSuffix, "name-suffix", "", "cluster name suffix, e.g. dev")
+	flagSet.StringVar(&conf.NameSuffix, "name-suffix", "", "cluster name suffix, e.g. dev.")
 
 	flagSet.BoolVar(&conf.DryRun, "dry-run", false, "dry-run mode. validate config and then exit.")
+	flagSet.BoolVar(&conf.Purge, "purge", false, "remove configuration.")
 }

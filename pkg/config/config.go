@@ -6,5 +6,6 @@ type Config struct {
 	SSHVia     string
 	NameSuffix string
 
+	Purge  bool
 	DryRun bool
 }
