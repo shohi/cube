@@ -45,18 +45,17 @@ func Dispatch(conf config.Config) error {
 		return nil
 	}
 
-	// TODO: implement dry-run feature
-	if conf.DryRun {
-		content, err := km.Write()
-		if err != nil {
-			return err
-		}
+	// always output updated kubeconfig.
+	content, err := km.Write()
+	if err != nil {
+		return err
+	}
 
-		fmt.Fprintf(os.Stdout, "# updated config\n%v\n", string(content))
-		fmt.Fprintf(os.Stdout, "# ssh forwarding command\n%s\n", sshCmd)
-	} else {
+	fmt.Fprintf(os.Stdout, "# updated config\n%v\n", string(content))
+	fmt.Fprintf(os.Stdout, "# ssh forwarding command\n%s\n", sshCmd)
+
+	if !conf.DryRun {
 		km.WriteToFile()
-		fmt.Fprintf(os.Stdout, "# ssh forwarding command\n%s\n", sshCmd)
 	}
 
 	return nil
