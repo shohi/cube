@@ -67,6 +67,7 @@ func setupFlags(cmd *cobra.Command) {
 
 	flagSet.BoolVar(&conf.DryRun, "dry-run", false, "dry-run mode. validate config and then exit.")
 	flagSet.BoolVar(&conf.Purge, "purge", false, "remove configuration.")
+	flagSet.BoolVar(&conf.Purge, "print-ssh-forwarding", false, "print ssh forwarding command and exit.")
 
 	cmd.MarkFlagRequired("remote-ip")
 	cmd.MarkFlagRequired("local-port")

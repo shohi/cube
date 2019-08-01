@@ -56,6 +56,7 @@ func Dispatch(conf config.Config) error {
 		fmt.Fprintf(os.Stdout, "# ssh forwarding command\n%s\n", sshCmd)
 	} else {
 		km.WriteToFile()
+		fmt.Fprintf(os.Stdout, "# ssh forwarding command\n%s\n", sshCmd)
 	}
 
 	return nil

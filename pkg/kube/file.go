@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +25,6 @@ func init() {
 	}
 
 	err = os.MkdirAll(DefaultCacheDir, os.ModePerm)
-	log.Printf("init cache dir")
 	if err != nil {
 		panic(fmt.Sprintf("%v, cause: %v", ErrFailedCreateCacheDir, err))
 	}
