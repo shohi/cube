@@ -40,13 +40,21 @@ go get -u github.com/shohi/cube
 
 ### Binary
 ```terminal
-# example
+# `merge` example
 cube \
     --remote-user=core \
     --remote-ip=172.xxx \
-    --local-port=7001 \
     --ssh-via user@jump-server \
+    --local-port=7001 \
     --name-suffix=dev \
+    --dry-run=false
+
+# `purge` example
+cube \
+    --remote-user=core \
+    --remote-ip=172.xxx \
+    --ssh-via user@jump-server \
+    --purge \
     --dry-run=false
 
 # help
