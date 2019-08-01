@@ -50,6 +50,11 @@ func TransferFile(conf TransferConfig) error {
 		return err
 	}
 
+	// Fast check whether file has already been downloaded.
+	if hasContent(conf.LocalPath) {
+		return nil
+	}
+
 	var args []string
 	remoteLoc := fmt.Sprintf("%s:%s", conf.RemoteAddr, conf.RemotePath)
 
