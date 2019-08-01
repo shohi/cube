@@ -3,11 +3,8 @@ package kube
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 
-	"github.com/shohi/cube/pkg/config"
-	"github.com/shohi/cube/pkg/scp"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -20,51 +17,12 @@ const (
 	DefaultHost = "kubernetes"
 )
 
-// Fuse merges kubeconfig of remote cluster into local
-func Fuse(conf config.Config) error {
-	p := getLocalPath(conf.RemoteAddr)
-
-	// TODO: check whether the file is empty
-	err := scp.TransferFile(scp.TransferConfig{
-		LocalPath:  p,
-		RemoteAddr: conf.RemoteAddr,
-		RemotePath: DefaultKubeConfigPath,
-	})
-
-	if err != nil {
-		return err
+func getRemoteAddr(user, ip string) string {
+	if user == "" {
+		return ip
 	}
 
-	// TODO: handle duplicated
-	km := newKubeManager(kubeOptions{
-		mainPath:   getLocalKubePath(),
-		inPath:     p,
-		isPurge:    conf.Purge,
-		localPort:  conf.LocalPort,
-		nameSuffix: conf.NameSuffix,
-	})
-
-	if err := km.Do(); err != nil {
-		return err
-	}
-
-	// TODO: implement dry-run feature
-	if conf.DryRun {
-		content, err := km.Write()
-		if err != nil {
-			return err
-		}
-
-		log.Printf("merged config:\n%v\n", string(content))
-	} else {
-		km.WriteToFile()
-	}
-
-	// NOTE: Print SSH forwarding setting
-	sshCmd := getPortForwardingCmd(km.opts.localPort, km.inAPIAddr, conf.SSHVia)
-	log.Printf("ssh command:\n%s\n", sshCmd)
-
-	return nil
+	return user + "@" + ip
 }
 
 type kubeOptions struct {

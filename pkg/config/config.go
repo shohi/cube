@@ -1,11 +1,15 @@
 package config
 
 type Config struct {
-	RemoteAddr string
+	RemoteUser string
+	RemoteIP   string
+
 	LocalPort  int
 	SSHVia     string
 	NameSuffix string
 
 	Purge  bool
 	DryRun bool
+
+	PrintSSHForwarding bool
 }

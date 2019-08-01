@@ -39,7 +39,7 @@ var rootCmd = &cobra.Command{
 	Use:   "cube",
 	Short: "kubectl config manipulation tools",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return kube.Fuse(conf)
+		return kube.Dispatch(conf)
 	},
 }
 
@@ -58,11 +58,17 @@ func Execute() {
 func setupFlags(cmd *cobra.Command) {
 	flagSet := cmd.Flags()
 
-	flagSet.StringVar(&conf.RemoteAddr, "remote-addr", "", "remote master address, e.g. root@ip.")
+	flagSet.StringVar(&conf.RemoteUser, "remote-user", "core", "remote user, e.g. root.")
+	flagSet.StringVar(&conf.RemoteIP, "remote-ip", "", "remote master private ip, e.g. 172.17.31.1.")
+
 	flagSet.IntVar(&conf.LocalPort, "local-port", 0, "local forwarding port, e.g. 7001.")
 	flagSet.StringVar(&conf.SSHVia, "ssh-via", "", "ssh jump server, e.g. user@jump. If not set, SSH_VIA env will be used. ")
 	flagSet.StringVar(&conf.NameSuffix, "name-suffix", "", "cluster name suffix, e.g. dev.")
 
 	flagSet.BoolVar(&conf.DryRun, "dry-run", false, "dry-run mode. validate config and then exit.")
 	flagSet.BoolVar(&conf.Purge, "purge", false, "remove configuration.")
+
+	cmd.MarkFlagRequired("remote-ip")
+	cmd.MarkFlagRequired("local-port")
+	cmd.MarkFlagRequired("name-suffix")
 }

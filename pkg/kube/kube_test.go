@@ -51,13 +51,14 @@ func TestKubeConfig_Merge(t *testing.T) {
 	log.Printf("kube in config: [%+v]", km.inKC)
 }
 
-func TestKubeConfig_Fuse(t *testing.T) {
+func TestKubeConfig_Dispatch(t *testing.T) {
 	conf := config.Config{
-		RemoteAddr: "core@172.31.10.34",
+		RemoteUser: "core",
+		RemoteIP:   "172.31.10.34",
 		LocalPort:  7003,
 		NameSuffix: "sat",
 		DryRun:     true,
 	}
 
-	Fuse(conf)
+	Dispatch(conf)
 }
