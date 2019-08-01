@@ -1,4 +1,4 @@
-# cube (WIP)
+# cube
 kubectl configuration manipulation tools, which fetches `~/.kube/config` from remote K8s cluster and merges it into local one.
 
 ## Prerequisite

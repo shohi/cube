@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/mitchellh/go-homedir"
 	"k8s.io/client-go/tools/clientcmd"
@@ -15,6 +14,7 @@ import (
 
 var DefaultCacheDir string
 var ErrFailedCreateCacheDir = errors.New("failed to create cache dir")
+var LocalKubeConfigPath = "~/.kube/config"
 
 func init() {
 	var err error
@@ -30,13 +30,6 @@ func init() {
 	}
 }
 
-// extractHost extracts host info from remoteAddr which is in the format `user@host`
-func extractHost(remoteAddr string) string {
-	tokens := strings.Split(remoteAddr, "@")
-
-	return tokens[len(tokens)-1]
-}
-
 // getLocalPath creates local config path from remote address by convention.
 // localPath is `~/.config/cube/cache/$HOST`.
 func getLocalPath(remoteAddr string) string {
@@ -46,7 +39,7 @@ func getLocalPath(remoteAddr string) string {
 }
 
 func getLocalKubePath() string {
-	p, err := homedir.Expand("~/.kube/config")
+	p, err := homedir.Expand(LocalKubeConfigPath)
 	if err != nil {
 		panic(fmt.Sprintf("failed to get kubeconfig locally, err: %v", err))
 	}

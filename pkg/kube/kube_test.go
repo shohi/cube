@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/shohi/cube/pkg/config"
 )
 
-func TestKubeConfig_Init(t *testing.T) {
+func TestKM_Init(t *testing.T) {
 	configPath, err := homedir.Expand("~/.kube/config")
 	if err != nil {
 		t.Fatalf("failed to expand path, err: %v", err)
@@ -29,7 +28,7 @@ func TestKubeConfig_Init(t *testing.T) {
 	log.Printf("kube config: [%+v]", km.mainKC)
 }
 
-func TestKubeConfig_Merge(t *testing.T) {
+func TestKM_Merge(t *testing.T) {
 	km := newKubeManager(kubeOptions{
 		mainPath:   getLocalKubePath(),
 		inPath:     getLocalPath("core@172.31.10.34"),
@@ -49,16 +48,4 @@ func TestKubeConfig_Merge(t *testing.T) {
 
 	log.Printf("kube main config: [%+v]", km.mainKC)
 	log.Printf("kube in config: [%+v]", km.inKC)
-}
-
-func TestKubeConfig_Dispatch(t *testing.T) {
-	conf := config.Config{
-		RemoteUser: "core",
-		RemoteIP:   "172.31.10.34",
-		LocalPort:  7003,
-		NameSuffix: "sat",
-		DryRun:     true,
-	}
-
-	Dispatch(conf)
 }

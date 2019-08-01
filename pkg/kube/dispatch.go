@@ -52,7 +52,7 @@ func Dispatch(conf config.Config) error {
 			return err
 		}
 
-		fmt.Fprintf(os.Stdout, "# merged config\n%v\n", string(content))
+		fmt.Fprintf(os.Stdout, "# updated config\n%v\n", string(content))
 		fmt.Fprintf(os.Stdout, "# ssh forwarding command\n%s\n", sshCmd)
 	} else {
 		km.WriteToFile()

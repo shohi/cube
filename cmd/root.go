@@ -70,6 +70,4 @@ func setupFlags(cmd *cobra.Command) {
 	flagSet.BoolVar(&conf.Purge, "print-ssh-forwarding", false, "print ssh forwarding command and exit.")
 
 	cmd.MarkFlagRequired("remote-ip")
-	cmd.MarkFlagRequired("local-port")
-	cmd.MarkFlagRequired("name-suffix")
 }

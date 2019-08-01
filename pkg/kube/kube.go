@@ -3,7 +3,7 @@ package kube
 import (
 	"errors"
 	"fmt"
-	"net/url"
+	"os"
 
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -41,6 +41,16 @@ type KubeManager struct {
 	mainKC clientcmdapi.Config
 	inKC   clientcmdapi.Config
 
+	inClusterName string
+	inCluster     *clientcmdapi.Cluster
+
+	inCtxName string
+	inCtx     *clientcmdapi.Context
+
+	inUser *clientcmdapi.AuthInfo
+
+	updatedClusterName string
+
 	inAPIAddr string
 }
 
@@ -69,6 +79,10 @@ func (k *KubeManager) Do() error {
 		return err
 	}
 
+	if err := k.extractInKC(); err != nil {
+		return err
+	}
+
 	if k.opts.isPurge {
 		return k.purge()
 	}
@@ -76,8 +90,8 @@ func (k *KubeManager) Do() error {
 	return k.merge()
 }
 
-// merge merges kubeconfig from given path
-func (k *KubeManager) merge() error {
+// extractInKC extracts Cluster/User/Context info from `inKC`.
+func (k *KubeManager) extractInKC() error {
 	// TODO: remove duplicated
 	if len(k.inKC.Clusters) != 1 {
 		return errors.New("remote kubeconfig must have only one cluster")
@@ -85,43 +99,94 @@ func (k *KubeManager) merge() error {
 
 	// NOTE: Only care about `clusters/contexts/users` sections
 	for ck, v := range k.inKC.Clusters {
-		cluster, found := findCluster(&k.mainKC, v.CertificateAuthorityData)
-		if found {
-			return fmt.Errorf("kubeconfig already merged under cluster - [%v]", cluster)
-		}
-
+		// Take a snapshot of incoming cluster info
 		// NOTE: It's ok to set `inAPIAddr` in the loop as
 		// only one element is in the map.
+		k.inClusterName, k.inCluster = ck, v
+		k.inCtxName, k.inCtx = getContext(&k.inKC, ck)
+		k.inUser = getUser(&k.inKC, k.inCtx.AuthInfo)
+
 		k.inAPIAddr = getHost(v.Server)
-
-		// add Cluster
-		ctxName, kCtx := getContext(&k.inKC, ck)
-		kUser := getUser(&k.inKC, kCtx.AuthInfo)
-
-		// update Cluster/User/Context
-		v.Server = fmt.Sprintf("https://%s:%d", DefaultHost, k.opts.localPort)
-
-		kCtx.AuthInfo += "-" + k.opts.nameSuffix
-		kCtx.Cluster += "-" + k.opts.nameSuffix
-		ctxName += "-" + k.opts.nameSuffix
-
-		k.mainKC.Clusters[kCtx.Cluster] = v
-		k.mainKC.AuthInfos[kCtx.AuthInfo] = kUser
-		k.mainKC.Contexts[ctxName] = kCtx
 	}
 
 	// TODO: compare based on `certificate-authority-data` field of cluster
 	return nil
 }
 
-// getHost returns Host part of address, Host or Host:port if port given.
-func getHost(srvAddr string) string {
-	u, err := url.Parse(srvAddr)
-	if err != nil {
-		panic(fmt.Sprintf("failed to get host:port from address - %v", srvAddr))
+func (k *KubeManager) merge() error {
+	// check
+	if k.opts.localPort <= 0 || k.opts.localPort > 65535 {
+		return fmt.Errorf("invalid local port for merging, local port: [%v]", k.opts.localPort)
 	}
 
-	return u.Host
+	if k.opts.nameSuffix == "" {
+		return fmt.Errorf("name-suffix must not be empty for merging")
+	}
+
+	cluster, found := findCluster(&k.mainKC, k.inCluster.CertificateAuthorityData)
+	if found {
+		return fmt.Errorf("kubeconfig has already been merged under cluster - [%v]", cluster)
+	}
+
+	// add Cluster
+	k.inCluster.Server = fmt.Sprintf("https://%s:%d", DefaultHost, k.opts.localPort)
+
+	k.inCtx.AuthInfo += "-" + k.opts.nameSuffix
+	k.inCtx.Cluster += "-" + k.opts.nameSuffix
+	k.inCtxName += "-" + k.opts.nameSuffix
+
+	k.updatedClusterName = k.inCtx.Cluster
+
+	if _, ok := k.mainKC.Clusters[k.inCtx.Cluster]; ok {
+		return fmt.Errorf("cluster - [%v] - already exists, plz choose another suffix", k.inCtx.Cluster)
+	}
+
+	if _, ok := k.mainKC.AuthInfos[k.inCtx.AuthInfo]; ok {
+		return fmt.Errorf("user - [%v] - already exists, plz choose anthor suffix", k.inCtx.AuthInfo)
+	}
+
+	if _, ok := k.mainKC.Contexts[k.inCtxName]; ok {
+		return fmt.Errorf("context - [%v] - already exists, plz choose another suffix", k.inCtxName)
+	}
+
+	k.mainKC.Clusters[k.inCtx.Cluster] = k.inCluster
+	k.mainKC.AuthInfos[k.inCtx.AuthInfo] = k.inUser
+	k.mainKC.Contexts[k.inCtxName] = k.inCtx
+
+	return nil
+}
+
+// purge deletes kubeconfig which matches the content with given file path
+func (k *KubeManager) purge() error {
+	cluster, found := findCluster(&k.mainKC, k.inCluster.CertificateAuthorityData)
+	if !found {
+		return fmt.Errorf("cannot find matched kubeconfig for purging")
+	}
+
+	// update local port from kubeconfig
+	c := k.mainKC.Clusters[cluster]
+	k.opts.localPort = getPort(c.Server)
+
+	k.updatedClusterName = cluster
+
+	// TODO: move to other place
+	fmt.Fprintf(os.Stdout, "# cluster - [%v] - will be purged\n", cluster)
+
+	ctxName, ctx := getContext(&k.mainKC, cluster)
+
+	delete(k.mainKC.Clusters, ctx.Cluster)
+	delete(k.mainKC.AuthInfos, ctx.AuthInfo)
+	delete(k.mainKC.Contexts, ctxName)
+
+	return nil
+}
+
+func (k *KubeManager) WriteToFile() error {
+	return clientcmd.WriteToFile(k.mainKC, k.opts.mainPath)
+}
+
+func (k *KubeManager) Write() ([]byte, error) {
+	return clientcmd.Write(k.mainKC)
 }
 
 func findCluster(kc *clientcmdapi.Config, certAuthData []byte) (string, bool) {
@@ -168,18 +233,4 @@ func getUser(kc *clientcmdapi.Config, userName string) *clientcmdapi.AuthInfo {
 	}
 
 	return user
-}
-
-// purge deletes kubeconfig which matches the content with given file path
-func (k *KubeManager) purge() error {
-	// TODO
-	return nil
-}
-
-func (k *KubeManager) WriteToFile() error {
-	return clientcmd.WriteToFile(k.mainKC, k.opts.mainPath)
-}
-
-func (k *KubeManager) Write() ([]byte, error) {
-	return clientcmd.Write(k.mainKC)
 }
