@@ -29,7 +29,7 @@ func Dispatch(conf config.Config) error {
 	km := newKubeManager(kubeOptions{
 		mainPath:   getLocalKubePath(),
 		inPath:     p,
-		isPurge:    conf.Purge,
+		action:     getAction(conf.Purge, conf.PrintSSHForwarding),
 		localPort:  conf.LocalPort,
 		nameSuffix: conf.NameSuffix,
 	})

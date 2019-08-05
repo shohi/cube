@@ -1,10 +1,10 @@
 package kube
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
+	"github.com/pkg/errors"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -15,6 +15,14 @@ const (
 
 	// DefaultHost is the host used to represent remote master locally
 	DefaultHost = "kubernetes"
+)
+
+var (
+	ErrConfigAlreadyMerged = errors.New("kubeconfig has already been merged")
+	ErrConfigInvalid       = errors.New("remote kubeconfig must have only one cluster")
+
+	ErrInvalidLocalPort = errors.New("invalid local port for merging")
+	ErrEmptyNameSuffix  = errors.New("name-suffix must not be empty for merging")
 )
 
 func getRemoteAddr(user, ip string) string {
@@ -30,7 +38,7 @@ type kubeOptions struct {
 	mainPath string
 	inPath   string
 
-	isPurge    bool
+	action     ActionType
 	localPort  int
 	nameSuffix string
 }
@@ -83,18 +91,29 @@ func (k *KubeManager) Do() error {
 		return err
 	}
 
-	if k.opts.isPurge {
+	if k.opts.action == ActionPurge {
 		return k.purge()
 	}
 
-	return k.merge()
+	// TODO: refactor
+	err := k.merge()
+	if err == nil {
+		return nil
+	}
+
+	if k.opts.action == ActionPrint && errors.Cause(err) == ErrConfigAlreadyMerged {
+		return nil
+	}
+
+	return nil
+
 }
 
 // extractInKC extracts Cluster/User/Context info from `inKC`.
 func (k *KubeManager) extractInKC() error {
 	// TODO: remove duplicated
 	if len(k.inKC.Clusters) != 1 {
-		return errors.New("remote kubeconfig must have only one cluster")
+		return ErrConfigInvalid
 	}
 
 	// NOTE: Only care about `clusters/contexts/users` sections
@@ -116,16 +135,16 @@ func (k *KubeManager) extractInKC() error {
 func (k *KubeManager) merge() error {
 	// check
 	if k.opts.localPort <= 0 || k.opts.localPort > 65535 {
-		return fmt.Errorf("invalid local port for merging, local port: [%v]", k.opts.localPort)
+		return errors.Wrapf(ErrInvalidLocalPort, "local port: [%v]", k.opts.localPort)
 	}
 
 	if k.opts.nameSuffix == "" {
-		return fmt.Errorf("name-suffix must not be empty for merging")
+		return ErrEmptyNameSuffix
 	}
 
 	cluster, found := findCluster(&k.mainKC, k.inCluster.CertificateAuthorityData)
 	if found {
-		return fmt.Errorf("kubeconfig has already been merged under cluster - [%v]", cluster)
+		return errors.Wrapf(ErrConfigAlreadyMerged, "cluster: [%v]", cluster)
 	}
 
 	// add Cluster
