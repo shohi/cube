@@ -91,22 +91,14 @@ func (k *KubeManager) Do() error {
 		return err
 	}
 
-	if k.opts.action == ActionPurge {
+	switch k.opts.action {
+	case ActionPurge:
 		return k.purge()
+	case ActionPrint:
+		return k.inferLocalPort()
+	default:
+		return k.merge()
 	}
-
-	// TODO: refactor
-	err := k.merge()
-	if err == nil {
-		return nil
-	}
-
-	if k.opts.action == ActionPrint && errors.Cause(err) == ErrConfigAlreadyMerged {
-		return nil
-	}
-
-	return nil
-
 }
 
 // extractInKC extracts Cluster/User/Context info from `inKC`.
@@ -196,6 +188,23 @@ func (k *KubeManager) purge() error {
 	delete(k.mainKC.Clusters, ctx.Cluster)
 	delete(k.mainKC.AuthInfos, ctx.AuthInfo)
 	delete(k.mainKC.Contexts, ctxName)
+
+	return nil
+}
+
+// inferLocalPort infers local port from default kubeconfig if local-port not provided.
+func (k *KubeManager) inferLocalPort() error {
+	if k.opts.localPort > 0 && k.opts.localPort < 65535 {
+		return nil
+	}
+
+	cluster, found := findCluster(&k.mainKC, k.inCluster.CertificateAuthorityData)
+	if !found {
+		return errors.Wrapf(ErrInvalidLocalPort, "local port: [%v]", k.opts.localPort)
+	}
+
+	c := k.mainKC.Clusters[cluster]
+	k.opts.localPort = getPort(c.Server)
 
 	return nil
 }
