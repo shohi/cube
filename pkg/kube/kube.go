@@ -126,6 +126,10 @@ func (k *KubeManager) extractInKC() error {
 
 func (k *KubeManager) merge() error {
 	// check
+	if k.opts.localPort == 0 {
+		k.opts.localPort = getNextLocalPort(&k.mainKC)
+	}
+
 	if k.opts.localPort <= 0 || k.opts.localPort > 65535 {
 		return errors.Wrapf(ErrInvalidLocalPort, "local port: [%v]", k.opts.localPort)
 	}

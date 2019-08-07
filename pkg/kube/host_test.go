@@ -1,6 +1,7 @@
 package kube
 
 import (
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -86,4 +87,9 @@ func TestGetPort(t *testing.T) {
 			assert.Equal(test.port, p)
 		})
 	}
+}
+
+func TestPortIsAvaliable(t *testing.T) {
+	ok := isAvailable(7887)
+	log.Printf("available: %v", ok)
 }
