@@ -10,6 +10,7 @@ type Config struct {
 
 	Purge  bool
 	DryRun bool
+	Force  bool
 
 	PrintSSHForwarding bool
 }

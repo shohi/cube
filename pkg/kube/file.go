@@ -13,6 +13,7 @@ import (
 )
 
 var DefaultCacheDir string
+var DefaultCertDir string
 var ErrFailedCreateCacheDir = errors.New("failed to create cache dir")
 var LocalKubeConfigPath = "~/.kube/config"
 
@@ -24,7 +25,8 @@ func init() {
 
 	}
 
-	err = os.MkdirAll(DefaultCacheDir, os.ModePerm)
+	DefaultCertDir = filepath.Join(DefaultCacheDir, "cert")
+	err = os.MkdirAll(DefaultCertDir, os.ModePerm)
 	if err != nil {
 		panic(fmt.Sprintf("%v, cause: %v", ErrFailedCreateCacheDir, err))
 	}
@@ -45,6 +47,24 @@ func getLocalKubePath() string {
 	}
 
 	return p
+}
+
+func getLocalCertAuthPath(remoteAddr string) string {
+	filename := extractHost(remoteAddr)
+
+	return filepath.Join(DefaultCertDir, filename+"-ca.crt")
+}
+
+func getLocalCertClientPath(remoteAddr string) string {
+	filename := extractHost(remoteAddr)
+
+	return filepath.Join(DefaultCertDir, filename+"-client.crt")
+}
+
+func getLocalCertClientKeyPath(remoteAddr string) string {
+	filename := extractHost(remoteAddr)
+
+	return filepath.Join(DefaultCertDir, filename+"-client.key")
 }
 
 // load reads kubeconfig from file

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/shohi/cube/pkg/scp"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -20,6 +21,8 @@ const (
 var (
 	ErrConfigAlreadyMerged = errors.New("kubeconfig has already been merged")
 	ErrConfigInvalid       = errors.New("remote kubeconfig must have only one cluster")
+	ErrRemoteInvalidUser   = errors.New("user in remote kubeconfig is invalid")
+	ErrRemoteInvalidCert   = errors.New("cert in remote kubeconfig is invalid")
 
 	ErrInvalidLocalPort = errors.New("invalid local port for merging")
 	ErrEmptyNameSuffix  = errors.New("name-suffix must not be empty for merging")
@@ -41,6 +44,9 @@ type kubeOptions struct {
 	action     ActionType
 	localPort  int
 	nameSuffix string
+	force      bool
+
+	remoteAddr string
 }
 
 type KubeManager struct {
@@ -120,7 +126,71 @@ func (k *KubeManager) extractInKC() error {
 		k.inAPIAddr = getHost(v.Server)
 	}
 
-	// TODO: compare based on `certificate-authority-data` field of cluster
+	err := k.checkInCertFiles()
+	return err
+}
+
+func (k *KubeManager) checkInCertFiles() error {
+	if k.inCluster == nil {
+		return ErrConfigInvalid
+	}
+
+	// k8s > 1.7
+	if len(k.inCluster.CertificateAuthorityData) > 0 {
+		if len(k.inUser.ClientCertificateData) == 0 ||
+			len(k.inUser.ClientKeyData) == 0 {
+			return ErrRemoteInvalidUser
+		}
+		return nil
+	}
+
+	// k8s <= 1.7
+	if len(k.inCluster.CertificateAuthority) > 0 {
+		// Download cert files
+		return k.getInCertFiles()
+	}
+
+	return ErrRemoteInvalidCert
+}
+
+func (k *KubeManager) getInCertFiles() error {
+	if len(k.inCluster.CertificateAuthority) == 0 {
+		return nil
+	}
+
+	// auth cert
+	err := scp.TransferFile(scp.TransferConfig{
+		LocalPath:  getLocalCertAuthPath(k.opts.remoteAddr),
+		RemoteAddr: k.opts.remoteAddr,
+		RemotePath: k.inCluster.CertificateAuthority,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// client crt
+	err = scp.TransferFile(scp.TransferConfig{
+		LocalPath:  getLocalCertClientPath(k.opts.remoteAddr),
+		RemoteAddr: k.opts.remoteAddr,
+		RemotePath: k.inUser.ClientCertificate,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// client key
+	err = scp.TransferFile(scp.TransferConfig{
+		LocalPath:  getLocalCertClientKeyPath(k.opts.remoteAddr),
+		RemoteAddr: k.opts.remoteAddr,
+		RemotePath: k.inUser.ClientKey,
+	})
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -138,19 +208,15 @@ func (k *KubeManager) merge() error {
 		return ErrEmptyNameSuffix
 	}
 
-	cluster, found := findCluster(&k.mainKC, k.inCluster.CertificateAuthorityData)
-	if found {
+	cluster, found := findCluster(&k.mainKC, k.inCluster)
+	if found && !k.opts.force {
 		return errors.Wrapf(ErrConfigAlreadyMerged, "cluster: [%v]", cluster)
 	}
 
+	k.normalizeInName()
+
 	// add Cluster
 	k.inCluster.Server = fmt.Sprintf("https://%s:%d", DefaultHost, k.opts.localPort)
-
-	k.inCtx.AuthInfo += "-" + k.opts.nameSuffix
-	k.inCtx.Cluster += "-" + k.opts.nameSuffix
-	k.inCtxName += "-" + k.opts.nameSuffix
-
-	k.updatedClusterName = k.inCtx.Cluster
 
 	if _, ok := k.mainKC.Clusters[k.inCtx.Cluster]; ok {
 		return fmt.Errorf("cluster - [%v] - already exists, plz choose another suffix", k.inCtx.Cluster)
@@ -171,9 +237,24 @@ func (k *KubeManager) merge() error {
 	return nil
 }
 
+// normalizeInName normalized local names for remote cluster.
+// The names for remote cluster should follow below conventions:
+// 1. cluster name: `kubernetes` + `-` + nameSuffix
+// 2. user name: `kubernetes-admin` + `-` + nameSuffix
+// 3. context name: `kubernetes-admin` + `@` + remoteIP + `-` + nameSuffix
+func (k *KubeManager) normalizeInName() {
+	remoteHost := getHost(k.opts.remoteAddr)
+
+	k.inCtx.AuthInfo = "kubernetes-" + k.opts.nameSuffix
+	k.inCtx.Cluster = "kubernetes-" + k.opts.nameSuffix
+	k.inCtxName = fmt.Sprintf("%s@%s-%s", "kubernetes-admin", remoteHost, k.opts.nameSuffix)
+
+	k.updatedClusterName = k.inCtx.Cluster
+}
+
 // purge deletes kubeconfig which matches the content with given file path
 func (k *KubeManager) purge() error {
-	cluster, found := findCluster(&k.mainKC, k.inCluster.CertificateAuthorityData)
+	cluster, found := findCluster(&k.mainKC, k.inCluster)
 	if !found {
 		return fmt.Errorf("cannot find matched kubeconfig for purging")
 	}
@@ -202,7 +283,7 @@ func (k *KubeManager) inferLocalPort() error {
 		return nil
 	}
 
-	cluster, found := findCluster(&k.mainKC, k.inCluster.CertificateAuthorityData)
+	cluster, found := findCluster(&k.mainKC, k.inCluster)
 	if !found {
 		return errors.Wrapf(ErrInvalidLocalPort, "local port: [%v]", k.opts.localPort)
 	}
@@ -221,12 +302,12 @@ func (k *KubeManager) Write() ([]byte, error) {
 	return clientcmd.Write(k.mainKC)
 }
 
-func findCluster(kc *clientcmdapi.Config, certAuthData []byte) (string, bool) {
+func findCluster(kc *clientcmdapi.Config, inCluster *clientcmdapi.Cluster) (string, bool) {
 	var cluster string
 	var found = false
 
 	for k, v := range kc.Clusters {
-		if string(v.CertificateAuthorityData) == string(certAuthData) {
+		if isEqual(v, inCluster) {
 			found = true
 			cluster = k
 			break
@@ -234,6 +315,21 @@ func findCluster(kc *clientcmdapi.Config, certAuthData []byte) (string, bool) {
 	}
 
 	return cluster, found
+}
+
+// isEqual checks whether the two cluster is equal based on CertificateAuthority info.
+func isEqual(k1, k2 *clientcmdapi.Cluster) bool {
+	if len(k1.CertificateAuthorityData) > 0 &&
+		string(k1.CertificateAuthorityData) == string(k2.CertificateAuthorityData) {
+		return true
+	}
+
+	if len(k1.CertificateAuthority) > 0 &&
+		k1.CertificateAuthority == k2.CertificateAuthority {
+		return true
+	}
+
+	return false
 }
 
 func getContext(kc *clientcmdapi.Config, cluster string) (string, *clientcmdapi.Context) {

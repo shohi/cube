@@ -32,6 +32,8 @@ func Dispatch(conf config.Config) error {
 		action:     getAction(conf.Purge, conf.PrintSSHForwarding),
 		localPort:  conf.LocalPort,
 		nameSuffix: conf.NameSuffix,
+		force:      conf.Force,
+		remoteAddr: remoteAddr,
 	})
 
 	if err := km.Do(); err != nil {
