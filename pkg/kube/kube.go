@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/shohi/cube/pkg/base"
 	"github.com/shohi/cube/pkg/scp"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -123,7 +124,7 @@ func (k *KubeManager) extractInKC() error {
 		k.inCtxName, k.inCtx = getContext(&k.inKC, ck)
 		k.inUser = getUser(&k.inKC, k.inCtx.AuthInfo)
 
-		k.inAPIAddr = getHost(v.Server)
+		k.inAPIAddr = base.GetHost(v.Server)
 	}
 
 	err := k.checkInCertFiles()
@@ -159,7 +160,7 @@ func (k *KubeManager) getInCertFiles() error {
 	}
 
 	// download auth cert and also update corresponding info
-	localAuthPath := getLocalCertAuthPath(k.opts.remoteAddr)
+	localAuthPath := base.GenLocalCertAuthPath(k.opts.remoteAddr)
 	err := scp.TransferFile(scp.TransferConfig{
 		LocalPath:  localAuthPath,
 		RemoteAddr: k.opts.remoteAddr,
@@ -172,7 +173,7 @@ func (k *KubeManager) getInCertFiles() error {
 	k.inCluster.CertificateAuthority = localAuthPath
 
 	// client crt
-	localClientCertPath := getLocalCertClientPath(k.opts.remoteAddr)
+	localClientCertPath := base.GenLocalCertClientPath(k.opts.remoteAddr)
 	err = scp.TransferFile(scp.TransferConfig{
 		LocalPath:  localClientCertPath,
 		RemoteAddr: k.opts.remoteAddr,
@@ -185,7 +186,7 @@ func (k *KubeManager) getInCertFiles() error {
 	k.inUser.ClientCertificate = localClientCertPath
 
 	// client key
-	localClientKeyPath := getLocalCertClientKeyPath(k.opts.remoteAddr)
+	localClientKeyPath := base.GenLocalCertClientKeyPath(k.opts.remoteAddr)
 	err = scp.TransferFile(scp.TransferConfig{
 		LocalPath:  localClientKeyPath,
 		RemoteAddr: k.opts.remoteAddr,
@@ -250,7 +251,7 @@ func (k *KubeManager) merge() error {
 // 2. user name: `kubernetes-admin` + `-` + nameSuffix
 // 3. context name: `kubernetes-admin` + `@` + remoteIP + `-` + nameSuffix
 func (k *KubeManager) normalizeInName() {
-	remoteHost := getHost(k.opts.remoteAddr)
+	remoteHost := base.GetHost(k.opts.remoteAddr)
 
 	k.inCtx.AuthInfo = "kubernetes-" + k.opts.nameSuffix
 	k.inCtx.Cluster = "kubernetes-" + k.opts.nameSuffix
@@ -268,7 +269,7 @@ func (k *KubeManager) purge() error {
 
 	// update local port from kubeconfig
 	c := k.mainKC.Clusters[cluster]
-	k.opts.localPort = getPort(c.Server)
+	k.opts.localPort = base.GetPort(c.Server)
 
 	k.updatedClusterName = cluster
 
@@ -296,7 +297,7 @@ func (k *KubeManager) inferLocalPort() error {
 	}
 
 	c := k.mainKC.Clusters[cluster]
-	k.opts.localPort = getPort(c.Server)
+	k.opts.localPort = base.GetPort(c.Server)
 
 	return nil
 }

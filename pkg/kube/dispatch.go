@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/shohi/cube/pkg/base"
 	"github.com/shohi/cube/pkg/config"
 	"github.com/shohi/cube/pkg/scp"
 )
@@ -12,7 +13,7 @@ import (
 // TODO: use subcommands instead
 func Dispatch(conf config.Config) error {
 	remoteAddr := getRemoteAddr(conf.RemoteUser, conf.RemoteIP)
-	p := getLocalPath(remoteAddr)
+	p := base.GenLocalPath(remoteAddr)
 
 	// TODO: check whether the file is empty
 	err := scp.TransferFile(scp.TransferConfig{
@@ -27,7 +28,7 @@ func Dispatch(conf config.Config) error {
 
 	// TODO: handle duplicated
 	km := newKubeManager(kubeOptions{
-		mainPath:   getLocalKubePath(),
+		mainPath:   base.GetLocalKubePath(),
 		inPath:     p,
 		action:     getAction(conf.Purge, conf.PrintSSHForwarding),
 		localPort:  conf.LocalPort,

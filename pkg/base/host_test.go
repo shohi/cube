@@ -1,4 +1,4 @@
-package kube
+package base
 
 import (
 	"log"
@@ -29,7 +29,7 @@ func TestExtractHost(t *testing.T) {
 
 		t.Run(test.name, func(t *testing.T) {
 			assert := assert.New(t)
-			h := extractHost(test.addr)
+			h := ExtractHost(test.addr)
 			assert.Equal(test.host, h)
 		})
 	}
@@ -56,7 +56,7 @@ func TestGetHost(t *testing.T) {
 
 		t.Run(test.name, func(t *testing.T) {
 			assert := assert.New(t)
-			h := getHost(test.addr)
+			h := GetHost(test.addr)
 			assert.Equal(test.host, h)
 		})
 	}
@@ -83,13 +83,13 @@ func TestGetPort(t *testing.T) {
 
 		t.Run(test.name, func(t *testing.T) {
 			assert := assert.New(t)
-			p := getPort(test.addr)
+			p := GetPort(test.addr)
 			assert.Equal(test.port, p)
 		})
 	}
 }
 
 func TestPortIsAvaliable(t *testing.T) {
-	ok := isAvailable(7887)
+	ok := IsAvailable(7887)
 	log.Printf("available: %v", ok)
 }
