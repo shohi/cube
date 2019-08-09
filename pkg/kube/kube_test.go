@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/shohi/cube/pkg/local"
 )
 
 func newKubeOptionsForTest(remoteIP string) kubeOptions {
@@ -16,7 +17,7 @@ func newKubeOptionsForTest(remoteIP string) kubeOptions {
 
 	inPath := configPath
 	if remoteIP != "" {
-		inPath = getLocalPath(remoteIP)
+		inPath = local.GetLocalPath(remoteIP)
 	}
 
 	return kubeOptions{
