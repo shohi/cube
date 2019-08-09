@@ -19,13 +19,13 @@ const (
 )
 
 var (
-	ErrConfigAlreadyMerged = errors.New("kubeconfig has already been merged")
-	ErrConfigInvalid       = errors.New("remote kubeconfig must have only one cluster")
-	ErrRemoteInvalidUser   = errors.New("user in remote kubeconfig is invalid")
-	ErrRemoteInvalidCert   = errors.New("cert in remote kubeconfig is invalid")
+	ErrConfigAlreadyMerged = errors.New("kubemgr: kubeconfig has already been merged")
+	ErrConfigInvalid       = errors.New("kubemgr: remote kubeconfig must have only one cluster")
+	ErrRemoteInvalidUser   = errors.New("kubemgr: user in remote kubeconfig is invalid")
+	ErrRemoteInvalidCert   = errors.New("kubemgr: cert in remote kubeconfig is invalid")
 
-	ErrInvalidLocalPort = errors.New("invalid local port for merging")
-	ErrEmptyNameSuffix  = errors.New("name-suffix must not be empty for merging")
+	ErrInvalidLocalPort = errors.New("kubemgr: invalid local port for merging")
+	ErrEmptyNameSuffix  = errors.New("kubemgr: name-suffix must not be empty for merging")
 )
 
 func getRemoteAddr(user, ip string) string {
@@ -75,13 +75,13 @@ func newKubeManager(opts kubeOptions) *KubeManager {
 func (k *KubeManager) init() error {
 	kc, err := load(k.opts.mainPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("kubemgr: load main kubeconfig error - %v", err)
 	}
 	k.mainKC = *kc
 
 	kc, err = load(k.opts.inPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("kubemgr: load incoming kubeconfig error - %v", err)
 	}
 	k.inKC = *kc
 
@@ -158,9 +158,10 @@ func (k *KubeManager) getInCertFiles() error {
 		return nil
 	}
 
-	// auth cert
+	// download auth cert and also update corresponding info
+	localAuthPath := getLocalCertAuthPath(k.opts.remoteAddr)
 	err := scp.TransferFile(scp.TransferConfig{
-		LocalPath:  getLocalCertAuthPath(k.opts.remoteAddr),
+		LocalPath:  localAuthPath,
 		RemoteAddr: k.opts.remoteAddr,
 		RemotePath: k.inCluster.CertificateAuthority,
 	})
@@ -168,10 +169,12 @@ func (k *KubeManager) getInCertFiles() error {
 	if err != nil {
 		return err
 	}
+	k.inCluster.CertificateAuthority = localAuthPath
 
 	// client crt
+	localClientCertPath := getLocalCertClientPath(k.opts.remoteAddr)
 	err = scp.TransferFile(scp.TransferConfig{
-		LocalPath:  getLocalCertClientPath(k.opts.remoteAddr),
+		LocalPath:  localClientCertPath,
 		RemoteAddr: k.opts.remoteAddr,
 		RemotePath: k.inUser.ClientCertificate,
 	})
@@ -179,10 +182,12 @@ func (k *KubeManager) getInCertFiles() error {
 	if err != nil {
 		return err
 	}
+	k.inUser.ClientCertificate = localClientCertPath
 
 	// client key
+	localClientKeyPath := getLocalCertClientKeyPath(k.opts.remoteAddr)
 	err = scp.TransferFile(scp.TransferConfig{
-		LocalPath:  getLocalCertClientKeyPath(k.opts.remoteAddr),
+		LocalPath:  localClientKeyPath,
 		RemoteAddr: k.opts.remoteAddr,
 		RemotePath: k.inUser.ClientKey,
 	})
@@ -190,6 +195,7 @@ func (k *KubeManager) getInCertFiles() error {
 	if err != nil {
 		return err
 	}
+	k.inUser.ClientKey = localClientKeyPath
 
 	return nil
 }
@@ -219,15 +225,16 @@ func (k *KubeManager) merge() error {
 	k.inCluster.Server = fmt.Sprintf("https://%s:%d", DefaultHost, k.opts.localPort)
 
 	if _, ok := k.mainKC.Clusters[k.inCtx.Cluster]; ok {
-		return fmt.Errorf("cluster - [%v] - already exists, plz choose another suffix", k.inCtx.Cluster)
+		// TODO: use error constants
+		return fmt.Errorf("kubemgr: cluster - [%v] - already exists, plz choose another suffix", k.inCtx.Cluster)
 	}
 
 	if _, ok := k.mainKC.AuthInfos[k.inCtx.AuthInfo]; ok {
-		return fmt.Errorf("user - [%v] - already exists, plz choose anthor suffix", k.inCtx.AuthInfo)
+		return fmt.Errorf("kubemgr: user - [%v] - already exists, plz choose anthor suffix", k.inCtx.AuthInfo)
 	}
 
 	if _, ok := k.mainKC.Contexts[k.inCtxName]; ok {
-		return fmt.Errorf("context - [%v] - already exists, plz choose another suffix", k.inCtxName)
+		return fmt.Errorf("kubemgr: context - [%v] - already exists, plz choose another suffix", k.inCtxName)
 	}
 
 	k.mainKC.Clusters[k.inCtx.Cluster] = k.inCluster

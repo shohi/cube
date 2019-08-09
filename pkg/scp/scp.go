@@ -22,9 +22,9 @@ type TransferConfig struct {
 }
 
 var (
-	ErrInvalidRemoteAddr = errors.New("invalid remote address")
-	ErrInvalidRemotePath = errors.New("invalid remote path")
-	ErrInvalidLocalPath  = errors.New("invalid local path")
+	ErrInvalidRemoteAddr = errors.New("scp: invalid remote address")
+	ErrInvalidRemotePath = errors.New("scp: invalid remote path")
+	ErrInvalidLocalPath  = errors.New("scp: invalid local path")
 )
 
 func checkConfig(conf TransferConfig) error {
@@ -69,7 +69,9 @@ func TransferFile(conf TransferConfig) error {
 	cmd := exec.Command("scp", args...)
 
 	// TODO: dump log
-	err := cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("scp: transfer error - %v", err)
+	}
 
-	return err
+	return nil
 }

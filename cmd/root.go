@@ -23,7 +23,7 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -49,7 +49,7 @@ func Execute() {
 	setupFlags(rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		log.Printf("run kube error, err: %v\n", err)
 		os.Exit(1)
 	}
 }
