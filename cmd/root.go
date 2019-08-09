@@ -30,6 +30,7 @@ import (
 
 	"github.com/shohi/cube/cmd/history"
 	"github.com/shohi/cube/pkg/config"
+	hist "github.com/shohi/cube/pkg/history"
 	"github.com/shohi/cube/pkg/kube"
 )
 
@@ -40,6 +41,9 @@ var rootCmd = &cobra.Command{
 	Use:   "cube",
 	Short: "kubectl config manipulation tools",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := hist.Write(); err != nil {
+			log.Printf("failed to write history, err: %v\n", err)
+		}
 		return kube.Dispatch(conf)
 	},
 }
