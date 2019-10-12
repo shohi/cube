@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/shohi/cube/pkg/local"
+	"github.com/shohi/cube/pkg/base"
 )
 
 func newKubeOptionsForTest(remoteIP string) kubeOptions {
@@ -17,7 +17,7 @@ func newKubeOptionsForTest(remoteIP string) kubeOptions {
 
 	inPath := configPath
 	if remoteIP != "" {
-		inPath = local.GetLocalPath(remoteIP)
+		inPath = base.GenLocalPath(remoteIP)
 	}
 
 	return kubeOptions{
@@ -42,8 +42,8 @@ func TestKM_Init(t *testing.T) {
 
 func TestKM_Merge(t *testing.T) {
 	km := newKubeManager(kubeOptions{
-		mainPath:   getLocalKubePath(),
-		inPath:     getLocalPath("core@172.31.10.34"),
+		mainPath:   base.GetLocalKubePath(),
+		inPath:     base.GenLocalPath("core@172.31.10.34"),
 		localPort:  7003,
 		nameSuffix: "test",
 	})
