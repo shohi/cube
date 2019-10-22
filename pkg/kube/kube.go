@@ -27,6 +27,8 @@ var (
 
 	ErrInvalidLocalPort = errors.New("kubemgr: invalid local port for merging")
 	ErrEmptyNameSuffix  = errors.New("kubemgr: name-suffix must not be empty for merging")
+
+	ErrClusterNotFound = errors.New("kubemgr: given cluster not found")
 )
 
 func getRemoteAddr(user, ip string) string {
@@ -204,7 +206,8 @@ func (k *KubeManager) getInCertFiles() error {
 func (k *KubeManager) merge() error {
 	// check
 	if k.opts.localPort == 0 {
-		k.opts.localPort = getNextLocalPort(&k.mainKC)
+		nextPort := getNextLocalPort(&k.mainKC)
+		k.opts.localPort = nextPort
 	}
 
 	if k.opts.localPort <= 0 || k.opts.localPort > 65535 {
@@ -293,7 +296,7 @@ func (k *KubeManager) inferLocalPort() error {
 
 	cluster, found := findCluster(&k.mainKC, k.inCluster)
 	if !found {
-		return errors.Wrapf(ErrInvalidLocalPort, "local port: [%v]", k.opts.localPort)
+		return errors.Wrapf(ErrClusterNotFound, "cluster: [%v]", k.inCluster)
 	}
 
 	c := k.mainKC.Clusters[cluster]
