@@ -68,7 +68,7 @@ type KubeManager struct {
 
 	updatedClusterName string
 
-	inAPIAddr string
+	inAPIServer string
 }
 
 func newKubeManager(opts kubeOptions) *KubeManager {
@@ -126,7 +126,7 @@ func (k *KubeManager) extractInKC() error {
 		k.inCtxName, k.inCtx = getContext(&k.inKC, ck)
 		k.inUser = getUser(&k.inKC, k.inCtx.AuthInfo)
 
-		k.inAPIAddr = base.GetHost(v.Server)
+		k.inAPIServer = v.Server
 	}
 
 	err := k.checkInCertFiles()
@@ -252,13 +252,16 @@ func (k *KubeManager) merge() error {
 // The names for remote cluster should follow below conventions:
 // 1. cluster name: `kubernetes` + `-` + nameSuffix
 // 2. user name: `kubernetes-admin` + `-` + nameSuffix
-// 3. context name: `kubernetes-admin` + `@` + remoteIP + `-` + nameSuffix
+// 3. context name: `kubernetes-admin` + `@` + `remoteIP:remotePort` + `-` + nameSuffix
 func (k *KubeManager) normalizeInName() {
 	remoteHost := base.GetHost(k.opts.remoteAddr)
+	remotePort, _ := base.GetPort(k.inAPIServer)
 
 	k.inCtx.AuthInfo = "kubernetes-" + k.opts.nameSuffix
 	k.inCtx.Cluster = "kubernetes-" + k.opts.nameSuffix
-	k.inCtxName = fmt.Sprintf("%s@%s-%s", "kubernetes-admin", remoteHost, k.opts.nameSuffix)
+	k.inCtxName = fmt.Sprintf("%s@%s:%v-%s", "kubernetes-admin",
+		remoteHost, remotePort,
+		k.opts.nameSuffix)
 
 	k.updatedClusterName = k.inCtx.Cluster
 }
@@ -272,7 +275,7 @@ func (k *KubeManager) purge() error {
 
 	// update local port from kubeconfig
 	c := k.mainKC.Clusters[cluster]
-	k.opts.localPort = base.GetPort(c.Server)
+	k.opts.localPort, _ = base.GetPort(c.Server)
 
 	k.updatedClusterName = cluster
 
@@ -300,7 +303,7 @@ func (k *KubeManager) inferLocalPort() error {
 	}
 
 	c := k.mainKC.Clusters[cluster]
-	k.opts.localPort = base.GetPort(c.Server)
+	k.opts.localPort, _ = base.GetPort(c.Server)
 
 	return nil
 }

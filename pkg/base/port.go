@@ -9,7 +9,7 @@ import (
 )
 
 // GetPort returns port part of address.
-func GetPort(srvAddr string) int {
+func GetPort(srvAddr string) (port int, notFound bool) {
 	if !strings.HasPrefix(srvAddr, "http") {
 		srvAddr = "http://" + srvAddr
 	}
@@ -21,7 +21,11 @@ func GetPort(srvAddr string) int {
 
 	p := u.Port()
 	if p == "" {
-		p = "80"
+		if u.Scheme == "https" {
+			return 443, true
+		}
+
+		return 80, true
 	}
 
 	pVal, err := strconv.Atoi(p)
@@ -29,7 +33,7 @@ func GetPort(srvAddr string) int {
 		panic(err)
 	}
 
-	return pVal
+	return pVal, false
 }
 
 // IsAvailable tests whether given port is available on localhost.

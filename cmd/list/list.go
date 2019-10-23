@@ -1,6 +1,7 @@
 package list
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -23,7 +24,8 @@ func New() *cobra.Command {
 				return err
 			}
 
-			fmt.Println(l)
+			content, _ := json.MarshalIndent(l, "", "  ")
+			fmt.Println(string(content))
 			return nil
 		},
 	}

@@ -26,3 +26,18 @@ func GetHost(srvAddr string) string {
 
 	return u.Host
 }
+
+// TODO: add tests
+// GetHostname returns host, stripping any valid port number if present.
+func GetHostname(addr string) string {
+	if !strings.HasPrefix(addr, "http") {
+		addr = "http://" + addr
+	}
+
+	u, err := url.Parse(addr)
+	if err != nil {
+		panic(fmt.Sprintf("failed to get hostname from address - %v", addr))
+	}
+
+	return u.Hostname()
+}

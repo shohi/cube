@@ -14,8 +14,8 @@ const (
 )
 
 type ClusterInfo struct {
-	Name       string
-	SSHForward string
+	Name       string `json:"name"`
+	SSHForward string `json:"sshForward"`
 }
 
 func (f ClusterInfo) String() string {
@@ -82,18 +82,16 @@ func ListAllClusters() (ClusterInfos, error) {
 }
 
 func genClusterInfo(kctx string, port int) ClusterInfo {
-
 	info := ClusterInfo{
 		Name: getShortContext(kctx),
 	}
 
-	ip := getRemoteIPFromCtx(kctx)
-	if ip == "" {
+	h := getRemoteHostFromCtx(kctx)
+	if h == "" {
 		return info
 	}
 
 	// TODO: dynamicially get real remote port by parsing related kube config file.
-	addr := fmt.Sprintf("%v:%v", ip, defaultRemoteAPIPort)
-	info.SSHForward = getPortForwardingCmd(port, addr, "")
+	info.SSHForward = getPortForwardingCmd(port, h, "")
 	return info
 }

@@ -41,7 +41,8 @@ func Dispatch(conf config.Config) error {
 		return err
 	}
 
-	sshCmd := getPortForwardingCmd(km.opts.localPort, km.inAPIAddr, conf.SSHVia)
+	inAPIAddr := genInAPIAddr(km.opts.remoteAddr, km.inAPIServer)
+	sshCmd := getPortForwardingCmd(km.opts.localPort, inAPIAddr, conf.SSHVia)
 	if conf.PrintSSHForwarding {
 		// NOTE: Print SSH forwarding setting
 		fmt.Fprintf(os.Stdout, "# ssh forwarding command\n%s\n", sshCmd)
@@ -62,4 +63,11 @@ func Dispatch(conf config.Config) error {
 	}
 
 	return nil
+}
+
+// remote API address is composed of ip from remoteAddr and port for apiSrv.
+func genInAPIAddr(remoteAddr, apiSrv string) string {
+	h := base.GetHostname(remoteAddr)
+	p, _ := base.GetPort(apiSrv)
+	return fmt.Sprintf("%v:%v", h, p)
 }
