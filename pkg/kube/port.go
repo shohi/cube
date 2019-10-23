@@ -52,21 +52,40 @@ func getAllOccupiedLocalPort(kc *clientcmdapi.Config) []int {
 		if v == nil {
 			continue
 		}
-		u, err := url.Parse(v.Server)
+
+		_, p, err := getOccupiedLocalPort(v.Server)
 		if err != nil {
-			log.Printf("failed to parse server address - [%v]\n", v.Server)
+			log.Printf("failed to get port from server address - [%v], err: %v\n", v.Server, err)
 			continue
 		}
-
-		portStr := u.Port()
-		if portStr == "" {
-			continue
-		}
-
-		if p, err := strconv.ParseInt(portStr, 10, 32); err == nil {
-			ret = append(ret, int(p))
-		}
+		ret = append(ret, p)
 	}
 
 	return ret
+}
+
+func getOccupiedLocalPort(srv string) (host string, port int, err error) {
+	u, err := url.Parse(srv)
+	if err != nil {
+		return "", -1, err
+	}
+
+	p, err := getPort(u)
+
+	return u.Hostname(), p, err
+}
+
+// getPort retrieves port info from url.URL.
+func getPort(u *url.URL) (int, error) {
+	portStr := u.Port()
+	if portStr == "" {
+		return 80, nil
+	}
+
+	p, err := strconv.ParseInt(portStr, 10, 32)
+	if err != nil {
+		return -1, err
+	}
+
+	return int(p), nil
 }

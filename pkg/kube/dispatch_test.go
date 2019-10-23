@@ -12,7 +12,8 @@ var enableSCPForTest bool
 
 func init() {
 	flag.BoolVar(&enableSCPForTest, "enable-scp", false, "whether enable scp in tests")
-	flag.Parse()
+	// NOTE: DON'T call `Parse` here, which will overwrite default go test flags.
+	// flag.Parse()
 }
 
 func TestDispatch_Merge(t *testing.T) {

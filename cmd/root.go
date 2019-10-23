@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/shohi/cube/cmd/history"
+	"github.com/shohi/cube/cmd/list"
 	"github.com/shohi/cube/pkg/config"
 	hist "github.com/shohi/cube/pkg/history"
 	"github.com/shohi/cube/pkg/kube"
@@ -53,6 +54,7 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	setupFlags(rootCmd)
 	rootCmd.AddCommand(history.New())
+	rootCmd.AddCommand(list.New())
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Printf("run kube error, err: %v\n", err)
