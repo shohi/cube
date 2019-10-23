@@ -13,7 +13,7 @@ const (
 // getRemoteAddrFromCtx extract IP from kube context.
 // e.g full context name - `kubernetes-admin@172.31.7.182-test`,,,,
 // result is `172.31.7.181`.
-func getRemoteAddrFromCtx(kctx string) string {
+func getRemoteIPFromCtx(kctx string) string {
 	sCtx := getShortContext(kctx)
 	var ipStr string
 	tokens := strings.Split(sCtx, SepHyphen)

@@ -3,9 +3,14 @@ package kube
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/shohi/cube/pkg/base"
+)
+
+const (
+	defaultRemoteAPIPort = 6443
 )
 
 type ClusterInfo struct {
@@ -27,6 +32,18 @@ func (c ClusterInfos) String() string {
 	}
 
 	return sb.String()
+}
+
+func (c ClusterInfos) Len() int {
+	return len(c)
+}
+
+func (c ClusterInfos) Less(i, j int) bool {
+	return c[i].Name < c[j].Name
+}
+
+func (c ClusterInfos) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
 }
 
 func ListAllClusters() (ClusterInfos, error) {
@@ -59,6 +76,8 @@ func ListAllClusters() (ClusterInfos, error) {
 		ret = append(ret, info)
 	}
 
+	sort.Sort(ret)
+
 	return ret, nil
 }
 
@@ -68,11 +87,13 @@ func genClusterInfo(kctx string, port int) ClusterInfo {
 		Name: getShortContext(kctx),
 	}
 
-	addr := getRemoteAddrFromCtx(kctx)
-	if addr == "" {
+	ip := getRemoteIPFromCtx(kctx)
+	if ip == "" {
 		return info
 	}
 
+	// TODO: dynamicially get real remote port by parsing related kube config file.
+	addr := fmt.Sprintf("%v:%v", ip, defaultRemoteAPIPort)
 	info.SSHForward = getPortForwardingCmd(port, addr, "")
 	return info
 }
