@@ -41,7 +41,7 @@ go get -u github.com/shohi/cube
 ### Binary
 ```terminal
 # `merge` example
-cube \
+cube add \
     --remote-user=core \
     --remote-ip=172.xxx \
     --ssh-via user@jump-server \
@@ -50,11 +50,10 @@ cube \
     --dry-run=false
 
 # `purge` example
-cube \
+cube del \
     --remote-user=core \
     --remote-ip=172.xxx \
     --ssh-via user@jump-server \
-    --purge \
     --dry-run=false
 
 # help
