@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.1"
+var version = "0.2"
 var gitCommit string
 
 type Info struct {

@@ -28,58 +28,31 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/shohi/cube/cmd/add"
+	"github.com/shohi/cube/cmd/del"
 	"github.com/shohi/cube/cmd/history"
 	"github.com/shohi/cube/cmd/list"
 	"github.com/shohi/cube/cmd/version"
-	"github.com/shohi/cube/pkg/config"
-	hist "github.com/shohi/cube/pkg/history"
-	"github.com/shohi/cube/pkg/kube"
 )
-
-var conf = config.Config{}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "cube",
 	Short: "kubectl config manipulation tools",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := hist.Write(); err != nil {
-			log.Printf("failed to write history, err: %v\n", err)
-		}
-		return kube.Dispatch(conf)
-	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	setupFlags(rootCmd)
 
 	rootCmd.AddCommand(history.New())
 	rootCmd.AddCommand(list.New())
 	rootCmd.AddCommand(version.New())
+	rootCmd.AddCommand(add.New())
+	rootCmd.AddCommand(del.New())
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Printf("run kube error, err: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-// setupFlags sets flags for comand line
-func setupFlags(cmd *cobra.Command) {
-	flagSet := cmd.Flags()
-
-	flagSet.StringVar(&conf.RemoteUser, "remote-user", "core", "remote user, e.g. root.")
-	flagSet.StringVar(&conf.RemoteIP, "remote-ip", "", "remote master private ip, e.g. 172.17.31.1.")
-
-	flagSet.IntVar(&conf.LocalPort, "local-port", 0, "local forwarding port, e.g. 7001.")
-	flagSet.StringVar(&conf.SSHVia, "ssh-via", "", "ssh jump server, e.g. user@jump. If not set, SSH_VIA env will be used. ")
-	flagSet.StringVar(&conf.NameSuffix, "name-suffix", "", "cluster name suffix, e.g. dev.")
-
-	flagSet.BoolVar(&conf.DryRun, "dry-run", false, "dry-run mode. validate config and then exit.")
-	flagSet.BoolVar(&conf.Purge, "purge", false, "remove configuration.")
-	flagSet.BoolVar(&conf.Force, "force", false, "merge configuration forcedly. Only take effect when cluster name is unique")
-	flagSet.BoolVar(&conf.PrintSSHForwarding, "print-ssh-forwarding", false, "print ssh forwarding command and exit.")
-
-	cmd.MarkFlagRequired("remote-ip")
 }
