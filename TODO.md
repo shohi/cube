@@ -1,6 +1,7 @@
 # TODO
 
 - [ ] use subcommands instead of flags
-- [ ] implement subcommands - `merge`/`purge`
+- [x] implement subcommands - `add`/`del`
 - [ ] structured logging
-- [ ] add `version` subcommand
+- [x] add `version` subcommand
+- [ ] rust port
