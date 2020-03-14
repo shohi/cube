@@ -1,5 +1,5 @@
 # cube
-kubectl configuration manipulation tools, which fetches `~/.kube/config` from remote K8s cluster and merges it into local one.
+kubectl configuration manipulation tool, which fetches `~/.kube/config` from remote K8s cluster and merges it into local one.
 
 ## Prerequisite
 `cube` depends on `ssh tunnel` for communication with remote cluster. Make sure these files -- `~/.ssh/config` and `/etc/hosts` -- are correctly set.
@@ -24,8 +24,8 @@ Host [remote/private/ip/range(e.g. 172.31.*)]
 ### `/etc/hosts`
 
 ```terminal
-# add following line into host
-# use to access AWS k8s cluster by SSH tunnel
+# add following line to /etc/hosts
+# to access AWS k8s cluster by SSH tunnel
 sudo echo "127.0.0.1	kubernetes" >> /etc/hosts
 ```
 
@@ -38,33 +38,76 @@ go get -u github.com/shohi/cube
 
 ## Usage
 
-### Binary
-```terminal
-# `merge` example
-cube add \
-    --remote-user=core \
-    --remote-ip=172.xxx \
-    --ssh-via user@jump-server \
-    --local-port=7001 \
-    --name-suffix=dev \
-    --dry-run=false
+### help
 
-# `purge` example
-cube del \
-    --remote-user=core \
-    --remote-ip=172.xxx \
-    --ssh-via user@jump-server \
-    --dry-run=false
+```
+$> cube --help
+kubectl config manipulation tool
 
-# help
-cube --help
+Usage:
+  cube [command]
 
-# then use kubens/kubectx to switch cluster
-kubectx
+Available Commands:
+  add         add remote cluster to kube config
+  delete      delete kubectl config for specified cluster
+  forward     run local ssh port forwarding for remote cluster
+  help        Help about any command
+  history     show cube commands history
+  list        list all clusters
+  version     print version info
+
+Flags:
+  -h, --help   help for cube
 
 ```
 
-### Docker
+use [kubectx](https://github.com/ahmetb/kubectx) to switch cluster
+
+```
+$> kubectx
+```
+
+### Add
+
+```
+$> cube add
+add remote cluster to kube config
+
+Usage:
+  cube add [flags]
+
+Flags:
+      --dry-run                dry-run mode. validate config and then exit
+      --force                  merge configuration forcedly. Only take effect when cluster name is unique
+  -h, --help                   help for add
+      --local-port int         local forwarding port
+      --name-suffix string     cluster name suffix
+      --print-ssh-forwarding   print ssh forwarding command and exit
+      --remote-ip string       remote master private ip
+      --remote-user string     remote user (default "core")
+      --ssh-via string         ssh jump server, e.g. user@jump. If not set, SSH_VIA env will be used
+```
+
+### Delete
+
+```
+$> cube delete
+delete kubectl config for specified cluster
+
+Usage:
+  cube delete [flags]
+
+Aliases:
+  delete, del
+
+Flags:
+      --all           delete all matched cluster.
+      --dry-run       dry-run mode. print modified config and exit
+  -h, --help          help for delete
+      --name string   cluster name to delete
+```
+
+~~### Docker~~
 
 ```terminal
 

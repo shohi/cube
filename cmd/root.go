@@ -39,7 +39,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "cube",
-	Short: "kubectl config manipulation tools",
+	Short: "kubectl config manipulation tool",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
