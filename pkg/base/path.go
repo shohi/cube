@@ -7,14 +7,6 @@ import (
 	"github.com/atrox/homedir"
 )
 
-// GenLocalPath creates local config path from remote address by convention.
-// localPath is `~/.config/cube/cache/$HOST`.
-func GenLocalPath(remoteAddr string) string {
-	filename := ExtractHost(remoteAddr)
-
-	return filepath.Join(DefaultCacheDir, filename+".yaml")
-}
-
 // GetLocalKubePath returns local kubeconfig absolute path.
 func GetLocalKubePath() string {
 	p, err := homedir.Expand(LocalKubeConfigPath)

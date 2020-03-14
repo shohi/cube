@@ -53,7 +53,7 @@ func getAllOccupiedLocalPort(kc *clientcmdapi.Config) []int {
 			continue
 		}
 
-		_, p, err := getOccupiedLocalPort(v.Server)
+		_, p, err := GetOccupiedLocalPort(v.Server)
 		if err != nil {
 			log.Printf("failed to get port from server address - [%v], err: %v\n", v.Server, err)
 			continue
@@ -64,7 +64,7 @@ func getAllOccupiedLocalPort(kc *clientcmdapi.Config) []int {
 	return ret
 }
 
-func getOccupiedLocalPort(srv string) (host string, port int, err error) {
+func GetOccupiedLocalPort(srv string) (host string, port int, err error) {
 	u, err := url.Parse(srv)
 	if err != nil {
 		return "", -1, err

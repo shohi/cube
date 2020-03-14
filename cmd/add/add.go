@@ -3,16 +3,13 @@ package add
 import (
 	"log"
 
-	"github.com/shohi/cube/pkg/config"
+	"github.com/shohi/cube/pkg/action"
 	hist "github.com/shohi/cube/pkg/history"
-	"github.com/shohi/cube/pkg/kube"
 	"github.com/spf13/cobra"
 )
 
 func New() *cobra.Command {
-	var conf = config.Config{
-		Purge: false,
-	}
+	var conf = action.AddConfig{}
 
 	c := &cobra.Command{
 		Use:   "add",
@@ -21,7 +18,7 @@ func New() *cobra.Command {
 			if err := hist.Write(); err != nil {
 				log.Printf("failed to write history, err: %v\n", err)
 			}
-			return kube.Add(conf)
+			return action.Add(conf)
 		},
 	}
 
@@ -32,7 +29,7 @@ func New() *cobra.Command {
 }
 
 // setupFlags sets flags for comand line
-func setupFlags(cmd *cobra.Command, conf *config.Config) {
+func setupFlags(cmd *cobra.Command, conf *action.AddConfig) {
 	flagSet := cmd.Flags()
 
 	flagSet.StringVar(&conf.RemoteUser, "remote-user", "core", "remote user")

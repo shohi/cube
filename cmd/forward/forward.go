@@ -1,44 +1,33 @@
 package forward
 
 import (
-	"errors"
-	"fmt"
-	"strings"
-
+	"github.com/shohi/cube/pkg/action"
 	"github.com/spf13/cobra"
 )
 
-var errNoClusterName = errors.New("please specify cluster name or suffix")
-
-const usage = `
-Usage:
-  cube forward [flags] [cluster-name]
-
-Flags:
-  -h, --help   help for forward
-`
-
 func New() *cobra.Command {
-	usageFunc := func(c *cobra.Command) error {
-		_, err := fmt.Fprintf(c.OutOrStderr(), strings.TrimSpace(usage)+"\n")
-		return err
-	}
+	var conf action.ForwardConfig
+
 	c := &cobra.Command{
 		Use:   "forward",
 		Short: "run local ssh port forwarding for remote cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return errNoClusterName
-			}
+			return action.Forward(conf)
 
-			// TODO
-			fmt.Printf("start ssh port forwarding for cluster - %s ...\n", args[0])
-			return nil
 		},
-		SilenceErrors: true,
 	}
-
-	c.SetUsageFunc(usageFunc)
+	setupFlags(c, &conf)
 
 	return c
+}
+
+// setupFlags sets flags for comand line
+func setupFlags(cmd *cobra.Command, conf *action.ForwardConfig) {
+	flagSet := cmd.Flags()
+
+	flagSet.StringVar(&conf.Name, "name", "", "cluster name")
+	flagSet.StringVar(&conf.Operation, "op", "print", "operation, avaliable options: print/run/stop")
+	flagSet.StringVar(&conf.SSHVia, "ssh-via", "", "ssh jump server, e.g. user@jump. If not set, SSH_VIA env will be used ")
+
+	cmd.MarkFlagRequired("name")
 }

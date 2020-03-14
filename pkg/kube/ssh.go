@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func getPortForwardingCmd(localPort int, remoteAPIAddr string, via string) string {
+func GetPortForwardingCmd(localPort int, remoteAPIAddr string, via string) string {
 	// example: ssh -fN -L 7002:172.31.6.103:6443 root@xx.xx.xx
 	forwardingFmt := "ssh -fN -L %v:%v %v"
 	if via == "" {

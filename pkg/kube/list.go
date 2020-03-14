@@ -6,7 +6,16 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/shohi/cube/pkg/base"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+)
+
+var (
+	errClusterNotFound          = errors.New("cube: cluster not found")
+	errLocalPortNotFound        = errors.New("cube: local port not found")
+	errLocalServerNotKubernetes = errors.New("cube: local server not 'kubernetes'")
+	errNoAddrInContextName      = errors.New("cube: no addr in context name")
 )
 
 const (
@@ -47,38 +56,52 @@ func (c ClusterInfos) Swap(i, j int) {
 }
 
 func ListAllClusters() (ClusterInfos, error) {
-	kc, err := load(base.GetLocalKubePath())
+	kc, err := Load(base.GetLocalKubePath())
 	if err != nil {
 		return nil, err
 	}
 
 	var ret ClusterInfos
 
-	for k, v := range kc.Clusters {
-		h, p, err := getOccupiedLocalPort(v.Server)
-		if err != nil {
-			// TODO: use debug level
-			log.Printf("failed to get server port for cluster - [%v], err: %v", k, err)
+	for k := range kc.Contexts {
+		info, err := ParseContext(kc, k)
+		if err == nil {
+			ret = append(ret, *info)
 			continue
 		}
 
-		if h != DefaultHost {
-			continue
+		if err != nil && !errors.Is(err, errLocalServerNotKubernetes) {
+			log.Println(err)
 		}
-
-		ctxName, _ := getContext(kc, k)
-		info := genClusterInfo(ctxName, p)
-		if info.SSHForward == "" {
-			// TODO: use debug level
-			log.Printf("no remote addr found in context name for cluster - [%v]", k)
-			continue
-		}
-		ret = append(ret, info)
 	}
 
 	sort.Sort(ret)
 
 	return ret, nil
+}
+
+func ParseContext(kc *clientcmdapi.Config, ctxName string) (*ClusterInfo, error) {
+	ctx := kc.Contexts[ctxName]
+	cluster, ok := kc.Clusters[ctx.Cluster]
+	if !ok {
+		return nil, errors.Wrapf(errClusterNotFound, "ctx: %v", ctxName)
+	}
+
+	h, p, err := GetOccupiedLocalPort(cluster.Server)
+	if err != nil {
+		return nil, errors.Wrapf(errLocalPortNotFound, "error %v", err)
+	}
+
+	if h != DefaultHost {
+		return nil, errors.Wrapf(errLocalServerNotKubernetes, "ctx: %v", ctxName)
+	}
+
+	info := genClusterInfo(ctxName, p)
+	if info.SSHForward == "" {
+		return nil, errors.Wrapf(errNoAddrInContextName, "ctx: %v", ctxName)
+	}
+
+	return &info, nil
 }
 
 func genClusterInfo(kctx string, port int) ClusterInfo {
@@ -92,6 +115,6 @@ func genClusterInfo(kctx string, port int) ClusterInfo {
 	}
 
 	// TODO: dynamicially get real remote port by parsing related kube config file.
-	info.SSHForward = getPortForwardingCmd(port, h, "")
+	info.SSHForward = GetPortForwardingCmd(port, h, "")
 	return info
 }

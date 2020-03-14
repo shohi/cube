@@ -15,8 +15,9 @@ import (
 // cluster_name : `ssh-forwarding`
 func New() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "list",
-		Short: "list all clusters",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "list all clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l, err := kube.ListAllClusters()
 			if err != nil {

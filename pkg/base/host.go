@@ -6,6 +6,15 @@ import (
 	"strings"
 )
 
+// SshHost returns host used for ssh/scp connection
+func SshHost(user, ip string) string {
+	if user == "" {
+		return ip
+	}
+
+	return user + "@" + ip
+}
+
 // ExtractHost extracts host info from remoteAddr which is in the format `user@host`
 func ExtractHost(remoteAddr string) string {
 	tokens := strings.Split(remoteAddr, "@")

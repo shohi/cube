@@ -2,33 +2,17 @@ package kube
 
 import (
 	"fmt"
-	"os"
+	"io/ioutil"
+	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/shohi/cube/pkg/base"
-	"github.com/shohi/cube/pkg/scp"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
-	// DefaultKubeConfigPath is default kubeconfig path on remote host.
-	DefaultKubeConfigPath = "~/.kube/config"
-
 	// DefaultHost is the host used to represent remote master locally
 	DefaultHost = "kubernetes"
-)
-
-var (
-	ErrConfigAlreadyMerged = errors.New("kubemgr: kubeconfig has already been merged")
-	ErrConfigInvalid       = errors.New("kubemgr: remote kubeconfig must have only one cluster")
-	ErrRemoteInvalidUser   = errors.New("kubemgr: user in remote kubeconfig is invalid")
-	ErrRemoteInvalidCert   = errors.New("kubemgr: cert in remote kubeconfig is invalid")
-
-	ErrInvalidLocalPort = errors.New("kubemgr: invalid local port for merging")
-	ErrEmptyNameSuffix  = errors.New("kubemgr: name-suffix must not be empty for merging")
-
-	ErrClusterNotFound = errors.New("kubemgr: given cluster not found")
 )
 
 func getRemoteAddr(user, ip string) string {
@@ -39,281 +23,12 @@ func getRemoteAddr(user, ip string) string {
 	return user + "@" + ip
 }
 
-type kubeOptions struct {
-	// TODO: renaming
-	mainPath string
-	inPath   string
-
-	action     ActionType
-	localPort  int
-	nameSuffix string
-	force      bool
-
-	remoteAddr string
+func WriteToFile(kc *clientcmdapi.Config, configPath string) error {
+	return clientcmd.WriteToFile(*kc, configPath)
 }
 
-type KubeManager struct {
-	opts kubeOptions
-
-	mainKC clientcmdapi.Config
-	inKC   clientcmdapi.Config
-
-	inClusterName string
-	inCluster     *clientcmdapi.Cluster
-
-	inCtxName string
-	inCtx     *clientcmdapi.Context
-
-	inUser *clientcmdapi.AuthInfo
-
-	updatedClusterName string
-
-	inAPIServer string
-}
-
-func newKubeManager(opts kubeOptions) *KubeManager {
-	return &KubeManager{opts: opts}
-}
-
-func (k *KubeManager) init() error {
-	kc, err := load(k.opts.mainPath)
-	if err != nil {
-		return fmt.Errorf("kubemgr: load main kubeconfig error - %v", err)
-	}
-	k.mainKC = *kc
-
-	kc, err = load(k.opts.inPath)
-	if err != nil {
-		return fmt.Errorf("kubemgr: load incoming kubeconfig error - %v", err)
-	}
-	k.inKC = *kc
-
-	return nil
-}
-
-func (k *KubeManager) Do() error {
-	if err := k.init(); err != nil {
-		return err
-	}
-
-	if err := k.extractInKC(); err != nil {
-		return err
-	}
-
-	switch k.opts.action {
-	case ActionPurge:
-		return k.purge()
-	case ActionPrint:
-		return k.inferLocalPort()
-	default:
-		return k.merge()
-	}
-}
-
-// extractInKC extracts Cluster/User/Context info from `inKC`.
-func (k *KubeManager) extractInKC() error {
-	// TODO: remove duplicated
-	if len(k.inKC.Clusters) != 1 {
-		return ErrConfigInvalid
-	}
-
-	// NOTE: Only care about `clusters/contexts/users` sections
-	for ck, v := range k.inKC.Clusters {
-		// Take a snapshot of incoming cluster info
-		// NOTE: It's ok to set `inAPIAddr` in the loop as
-		// only one element is in the map.
-		k.inClusterName, k.inCluster = ck, v
-		k.inCtxName, k.inCtx = getContext(&k.inKC, ck)
-		k.inUser = getUser(&k.inKC, k.inCtx.AuthInfo)
-
-		k.inAPIServer = v.Server
-	}
-
-	err := k.checkInCertFiles()
-	return err
-}
-
-func (k *KubeManager) checkInCertFiles() error {
-	if k.inCluster == nil {
-		return ErrConfigInvalid
-	}
-
-	// k8s > 1.7
-	if len(k.inCluster.CertificateAuthorityData) > 0 {
-		if len(k.inUser.ClientCertificateData) == 0 ||
-			len(k.inUser.ClientKeyData) == 0 {
-			return ErrRemoteInvalidUser
-		}
-		return nil
-	}
-
-	// k8s <= 1.7
-	if len(k.inCluster.CertificateAuthority) > 0 {
-		// Download cert files
-		return k.getInCertFiles()
-	}
-
-	return ErrRemoteInvalidCert
-}
-
-func (k *KubeManager) getInCertFiles() error {
-	if len(k.inCluster.CertificateAuthority) == 0 {
-		return nil
-	}
-
-	// download auth cert and also update corresponding info
-	localAuthPath := base.GenLocalCertAuthPath(k.opts.remoteAddr)
-	err := scp.TransferFile(scp.TransferConfig{
-		LocalPath:  localAuthPath,
-		RemoteAddr: k.opts.remoteAddr,
-		RemotePath: k.inCluster.CertificateAuthority,
-	})
-
-	if err != nil {
-		return err
-	}
-	k.inCluster.CertificateAuthority = localAuthPath
-
-	// client crt
-	localClientCertPath := base.GenLocalCertClientPath(k.opts.remoteAddr)
-	err = scp.TransferFile(scp.TransferConfig{
-		LocalPath:  localClientCertPath,
-		RemoteAddr: k.opts.remoteAddr,
-		RemotePath: k.inUser.ClientCertificate,
-	})
-
-	if err != nil {
-		return err
-	}
-	k.inUser.ClientCertificate = localClientCertPath
-
-	// client key
-	localClientKeyPath := base.GenLocalCertClientKeyPath(k.opts.remoteAddr)
-	err = scp.TransferFile(scp.TransferConfig{
-		LocalPath:  localClientKeyPath,
-		RemoteAddr: k.opts.remoteAddr,
-		RemotePath: k.inUser.ClientKey,
-	})
-
-	if err != nil {
-		return err
-	}
-	k.inUser.ClientKey = localClientKeyPath
-
-	return nil
-}
-
-func (k *KubeManager) merge() error {
-	// check
-	if k.opts.localPort == 0 {
-		nextPort := getNextLocalPort(&k.mainKC)
-		k.opts.localPort = nextPort
-	}
-
-	if k.opts.localPort <= 0 || k.opts.localPort > 65535 {
-		return errors.Wrapf(ErrInvalidLocalPort, "local port: [%v]", k.opts.localPort)
-	}
-
-	if k.opts.nameSuffix == "" {
-		return ErrEmptyNameSuffix
-	}
-
-	cluster, found := findCluster(&k.mainKC, k.inCluster)
-	if found && !k.opts.force {
-		return errors.Wrapf(ErrConfigAlreadyMerged, "cluster: [%v]", cluster)
-	}
-
-	k.normalizeInName()
-
-	// add Cluster
-	k.inCluster.Server = fmt.Sprintf("https://%s:%d", DefaultHost, k.opts.localPort)
-
-	if _, ok := k.mainKC.Clusters[k.inCtx.Cluster]; ok {
-		// TODO: use error constants
-		return fmt.Errorf("kubemgr: cluster - [%v] - already exists, plz choose another suffix", k.inCtx.Cluster)
-	}
-
-	if _, ok := k.mainKC.AuthInfos[k.inCtx.AuthInfo]; ok {
-		return fmt.Errorf("kubemgr: user - [%v] - already exists, plz choose anthor suffix", k.inCtx.AuthInfo)
-	}
-
-	if _, ok := k.mainKC.Contexts[k.inCtxName]; ok {
-		return fmt.Errorf("kubemgr: context - [%v] - already exists, plz choose another suffix", k.inCtxName)
-	}
-
-	k.mainKC.Clusters[k.inCtx.Cluster] = k.inCluster
-	k.mainKC.AuthInfos[k.inCtx.AuthInfo] = k.inUser
-	k.mainKC.Contexts[k.inCtxName] = k.inCtx
-
-	return nil
-}
-
-// normalizeInName normalized local names for remote cluster.
-// The names for remote cluster should follow below conventions:
-// 1. cluster name: `kubernetes` + `-` + nameSuffix
-// 2. user name: `kubernetes-admin` + `-` + nameSuffix
-// 3. context name: `kubernetes-admin` + `@` + `remoteIP:remotePort` + `-` + nameSuffix
-func (k *KubeManager) normalizeInName() {
-	remoteHost := base.GetHost(k.opts.remoteAddr)
-	remotePort, _ := base.GetPort(k.inAPIServer)
-
-	k.inCtx.AuthInfo = "kubernetes-" + k.opts.nameSuffix
-	k.inCtx.Cluster = "kubernetes-" + k.opts.nameSuffix
-	k.inCtxName = fmt.Sprintf("%s@%s:%v-%s", "kubernetes-admin",
-		remoteHost, remotePort,
-		k.opts.nameSuffix)
-
-	k.updatedClusterName = k.inCtx.Cluster
-}
-
-// purge deletes kubeconfig which matches the content with given file path
-func (k *KubeManager) purge() error {
-	cluster, found := findCluster(&k.mainKC, k.inCluster)
-	if !found {
-		return fmt.Errorf("cannot find matched kubeconfig for purging")
-	}
-
-	// update local port from kubeconfig
-	c := k.mainKC.Clusters[cluster]
-	k.opts.localPort, _ = base.GetPort(c.Server)
-
-	k.updatedClusterName = cluster
-
-	// TODO: move to other place
-	fmt.Fprintf(os.Stdout, "# cluster - [%v] - will be purged\n", cluster)
-
-	ctxName, ctx := getContext(&k.mainKC, cluster)
-
-	delete(k.mainKC.Clusters, ctx.Cluster)
-	delete(k.mainKC.AuthInfos, ctx.AuthInfo)
-	delete(k.mainKC.Contexts, ctxName)
-
-	return nil
-}
-
-// inferLocalPort infers local port from default kubeconfig if local-port not provided.
-func (k *KubeManager) inferLocalPort() error {
-	if k.opts.localPort > 0 && k.opts.localPort < 65535 {
-		return nil
-	}
-
-	cluster, found := findCluster(&k.mainKC, k.inCluster)
-	if !found {
-		return errors.Wrapf(ErrClusterNotFound, "cluster: [%v]", k.inCluster)
-	}
-
-	c := k.mainKC.Clusters[cluster]
-	k.opts.localPort, _ = base.GetPort(c.Server)
-
-	return nil
-}
-
-func (k *KubeManager) WriteToFile() error {
-	return clientcmd.WriteToFile(k.mainKC, k.opts.mainPath)
-}
-
-func (k *KubeManager) Write() ([]byte, error) {
-	return clientcmd.Write(k.mainKC)
+func Write(kc *clientcmdapi.Config) ([]byte, error) {
+	return clientcmd.Write(*kc)
 }
 
 func findCluster(kc *clientcmdapi.Config, inCluster *clientcmdapi.Cluster) (string, bool) {
@@ -375,4 +90,44 @@ func getUser(kc *clientcmdapi.Config, userName string) *clientcmdapi.AuthInfo {
 	}
 
 	return user
+}
+
+func FindContextsByName(kc *clientcmdapi.Config, name string, filter func(string) bool) map[string]*clientcmdapi.Context {
+	var result = make(map[string]*clientcmdapi.Context)
+	for k, v := range kc.Contexts {
+		if !strings.Contains(k, name) {
+			continue
+		}
+
+		if filter != nil && !filter(k) {
+			continue
+		}
+
+		result[k] = v
+	}
+
+	return result
+}
+
+// Load reads kubeconfig from file
+func Load(configPath string) (*clientcmdapi.Config, error) {
+	content, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	kc, err := clientcmd.Load(content)
+	if err != nil {
+		return nil, err
+	}
+
+	return kc, nil
+}
+
+// remote API address is composed of ip from remoteAddr and port for apiSrv.
+// e.g. 172.10.0.1:6443
+func genRemoteAPIAddr(remoteAddr, apiSrv string) string {
+	h := base.GetHostname(remoteAddr)
+	p, _ := base.GetPort(apiSrv)
+	return fmt.Sprintf("%v:%v", h, p)
 }

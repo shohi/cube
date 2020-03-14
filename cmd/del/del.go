@@ -3,25 +3,24 @@ package del
 import (
 	"log"
 
-	"github.com/shohi/cube/pkg/config"
-	hist "github.com/shohi/cube/pkg/history"
-	"github.com/shohi/cube/pkg/kube"
 	"github.com/spf13/cobra"
+
+	"github.com/shohi/cube/pkg/action"
+	hist "github.com/shohi/cube/pkg/history"
 )
 
 func New() *cobra.Command {
-	var conf = config.Config{
-		Purge: true,
-	}
+	var conf = action.DelConfig{}
 
 	c := &cobra.Command{
-		Use:   "del",
-		Short: "delete remote cluster from kube config",
+		Use:     "delete",
+		Aliases: []string{"del"},
+		Short:   "delete kubectl config for specified cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := hist.Write(); err != nil {
 				log.Printf("failed to write history, err: %v\n", err)
 			}
-			return kube.Del(conf)
+			return action.Del(conf)
 		},
 	}
 
@@ -31,19 +30,13 @@ func New() *cobra.Command {
 
 }
 
-// TODO: refine - remove unused flags
 // setupFlags sets flags for comand line
-func setupFlags(cmd *cobra.Command, conf *config.Config) {
+func setupFlags(cmd *cobra.Command, conf *action.DelConfig) {
 	flagSet := cmd.Flags()
 
-	flagSet.StringVar(&conf.RemoteUser, "remote-user", "core", "remote user")
-	flagSet.StringVar(&conf.RemoteIP, "remote-ip", "", "remote master private ip")
+	flagSet.StringVar(&conf.Name, "name", "", "cluster name to delete")
+	flagSet.BoolVar(&conf.DryRun, "dry-run", false, "dry-run mode. print modified config and exit")
+	flagSet.BoolVar(&conf.All, "all", false, "delete all matched cluster.")
 
-	flagSet.IntVar(&conf.LocalPort, "local-port", 0, "local forwarding port")
-	flagSet.StringVar(&conf.SSHVia, "ssh-via", "", "ssh jump server, e.g. user@jump. If not set, SSH_VIA env will be used")
-	flagSet.StringVar(&conf.NameSuffix, "name-suffix", "", "cluster name suffix")
-	flagSet.BoolVar(&conf.DryRun, "dry-run", false, "dry-run mode. validate config and then exit")
-	flagSet.BoolVar(&conf.PrintSSHForwarding, "print-ssh-forwarding", false, "print ssh forwarding command and exit")
-
-	cmd.MarkFlagRequired("remote-ip")
+	cmd.MarkFlagRequired("name")
 }

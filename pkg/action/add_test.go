@@ -1,10 +1,9 @@
-package kube
+package action
 
 import (
 	"flag"
 	"testing"
 
-	"github.com/shohi/cube/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,14 +15,14 @@ func init() {
 	// flag.Parse()
 }
 
-func TestKube_Add(t *testing.T) {
+func TestAction_Add(t *testing.T) {
 	if !enableSCPForTest {
 		t.Skip()
 	}
 
 	assert := assert.New(t)
 
-	conf := config.Config{
+	conf := AddConfig{
 		RemoteUser: "core",
 		RemoteIP:   "172.31.10.34",
 		LocalPort:  7003,
