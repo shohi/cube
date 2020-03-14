@@ -30,6 +30,7 @@ import (
 
 	"github.com/shohi/cube/cmd/add"
 	"github.com/shohi/cube/cmd/del"
+	"github.com/shohi/cube/cmd/forward"
 	"github.com/shohi/cube/cmd/history"
 	"github.com/shohi/cube/cmd/list"
 	"github.com/shohi/cube/cmd/version"
@@ -50,6 +51,7 @@ func Execute() {
 	rootCmd.AddCommand(version.New())
 	rootCmd.AddCommand(add.New())
 	rootCmd.AddCommand(del.New())
+	rootCmd.AddCommand(forward.New())
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Printf("run kube error, err: %v\n", err)

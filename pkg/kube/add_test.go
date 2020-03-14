@@ -16,7 +16,7 @@ func init() {
 	// flag.Parse()
 }
 
-func TestDispatch_Merge(t *testing.T) {
+func TestKube_Add(t *testing.T) {
 	if !enableSCPForTest {
 		t.Skip()
 	}
@@ -31,25 +31,6 @@ func TestDispatch_Merge(t *testing.T) {
 		DryRun:     true,
 	}
 
-	err := Dispatch(conf)
-	assert.Nil(err)
-}
-
-func TestDispatch_Purge(t *testing.T) {
-	if !enableSCPForTest {
-		t.Skip()
-	}
-
-	assert := assert.New(t)
-
-	conf := config.Config{
-		RemoteUser: "core",
-		RemoteIP:   "172.31.6.103",
-		Purge:      true,
-		DryRun:     true,
-	}
-
-	err := Dispatch(conf)
-
+	err := Add(conf)
 	assert.Nil(err)
 }
