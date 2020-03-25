@@ -93,6 +93,14 @@ func (d *Downloader) checkCertFiles() error {
 		d.user = getUser(d.kc, d.ctx.AuthInfo)
 	}
 
+	// TODO: use logrus
+	// log.Printf("=====> cluster: [%v]\n", d.cluster)
+
+	// check if token set. If token is set, no cert file/data is needed.
+	if len(d.user.Token) > 0 {
+		return nil
+	}
+
 	// k8s > 1.7
 	if len(d.cluster.CertificateAuthorityData) > 0 {
 		if len(d.user.ClientCertificateData) == 0 ||
