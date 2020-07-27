@@ -25,12 +25,16 @@ func New() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
-		Short:   "list all clusters",
+		Short:   "list clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l, err := kube.ListAllClusters()
 			if err != nil {
 				log.Printf("list clusters error, err: %v\n", err)
 				return err
+			}
+
+			if len(args) > 0 {
+				opts.Name = args[0]
 			}
 
 			selected := filter(l, ByName(opts.Name))
@@ -41,7 +45,7 @@ func New() *cobra.Command {
 		},
 	}
 
-	setupFlags(c, opts)
+	// setupFlags(c, opts)
 
 	return c
 }
