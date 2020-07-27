@@ -5,3 +5,4 @@
 - [ ] structured logging
 - [x] add `version` subcommand
 - [ ] rust port
+- [ ] list subcomand supports filter, e.g. `cube list [pattern]`
