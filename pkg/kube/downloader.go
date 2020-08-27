@@ -24,6 +24,7 @@ var (
 // also download cert files if necessary.
 type Downloader struct {
 	remoteAddr string
+	hostIP     string
 	kc         *clientcmdapi.Config
 
 	clusterName string
@@ -37,8 +38,10 @@ type Downloader struct {
 
 // NewDownloader create a new remote config downloader.
 func NewDownloader(remoteAddr string) *Downloader {
+	hostIP := base.ExtractHost(remoteAddr)
 	return &Downloader{
 		remoteAddr: remoteAddr,
+		hostIP:     hostIP,
 	}
 }
 
@@ -53,7 +56,6 @@ func (d *Downloader) Download() (*clientcmdapi.Config, error) {
 	}
 
 	return d.kc, nil
-
 }
 
 func (d *Downloader) downloadK8sConfig() error {
@@ -69,8 +71,32 @@ func (d *Downloader) downloadK8sConfig() error {
 		return err
 	}
 
-	d.kc, err = Load(p)
+	kc, err := Load(p)
+	if err != nil {
+		return err
+	}
+
+	err = d.filterCluster(kc)
 	return err
+}
+
+// filterCluster gets the matched cluster if multiple clusters exit in
+// the Config. The matched cluster is the one whose cluster server hostip
+// is equal to the provided hostip. If both http and https exits, prefer
+// http one for performance.
+func (d *Downloader) filterCluster(kc *clientcmdapi.Config) error {
+	if len(kc.Clusters) == 0 {
+		return ErrConfigInvalid
+	}
+
+	// return immediately if only one cluster is available
+	if len(kc.Clusters) == 1 {
+		return nil
+	}
+
+	// FIXME: add logic
+
+	return nil
 }
 
 func (d *Downloader) checkCertFiles() error {
@@ -78,11 +104,7 @@ func (d *Downloader) checkCertFiles() error {
 		return ErrConfigInvalid
 	}
 
-	// TODO: remove duplicated
-	if len(d.kc.Clusters) != 1 {
-		return ErrConfigInvalid
-	}
-
+	// FIXME: put to filter cluster
 	// NOTE: Only care about `clusters/contexts/users` sections
 	for ck, v := range d.kc.Clusters {
 		// Take a snapshot of incoming cluster info

@@ -67,16 +67,34 @@ func NewMerger(opts MergeOptions) Merger {
 	return m
 }
 
+func (m *merger) loadMainKC() error {
+	configPath := base.GetLocalKubePath()
+	exist, isDir := FileExists(configPath)
+
+	if !exist {
+		m.mainKC = clientcmdapi.NewConfig()
+		return nil
+	} else if isDir {
+		return fmt.Errorf("config path [%v] is a dir, not file", configPath)
+	}
+
+	var err error
+	m.mainKC, err = Load(base.GetLocalKubePath())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (m *merger) Merge() error {
 	if m.opts.NameSuffix == "" {
 		return ErrEmptyNameSuffix
 	}
 
-	mainKC, err := Load(base.GetLocalKubePath())
-	if err != nil {
+	if err := m.loadMainKC(); err != nil {
 		return err
 	}
-	m.mainKC = mainKC
 
 	inKC, err := m.d.Download()
 	if err != nil {

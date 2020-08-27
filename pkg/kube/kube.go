@@ -111,15 +111,6 @@ func FindContextsByName(kc *clientcmdapi.Config, name string, filter func(string
 
 // Load reads kubeconfig from file
 func Load(configPath string) (*clientcmdapi.Config, error) {
-	exist, isDir := FileExists(configPath)
-
-	if !exist {
-		conf := clientcmdapi.NewConfig()
-		return conf, nil
-	} else if isDir {
-		return nil, fmt.Errorf("config path [%v] is a dir, not file", configPath)
-	}
-
 	content, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return nil, err
