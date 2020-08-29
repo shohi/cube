@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// TODO: update version
 var version = "0.3"
 var gitCommit string
 

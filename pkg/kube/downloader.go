@@ -3,6 +3,7 @@ package kube
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 
 	"github.com/shohi/cube/pkg/base"
 	"github.com/shohi/cube/pkg/scp"
@@ -76,8 +77,13 @@ func (d *Downloader) downloadK8sConfig() error {
 		return err
 	}
 
-	err = d.filterCluster(kc)
-	return err
+	if err = d.filterCluster(kc); err != nil {
+		return err
+	}
+
+	d.extractFields()
+
+	return nil
 }
 
 // filterCluster gets the matched cluster if multiple clusters exit in
@@ -89,30 +95,52 @@ func (d *Downloader) filterCluster(kc *clientcmdapi.Config) error {
 		return ErrConfigInvalid
 	}
 
+	d.kc = kc
+
 	// return immediately if only one cluster is available
 	if len(kc.Clusters) == 1 {
 		return nil
 	}
 
-	// FIXME: add logic
+	var tlsCluster string
+	var cluster string
+	for k, v := range kc.Clusters {
+		if !strings.Contains(v.Server, d.hostIP) {
+			continue
+		}
 
-	return nil
+		switch {
+		case strings.HasPrefix(v.Server, "http://"):
+			cluster = k
+		case strings.HasPrefix(v.Server, "https://"):
+			tlsCluster = k
+		}
+	}
+
+	// prefer http over https for performance concern
+	switch {
+	case cluster != "":
+		d.clusterName = cluster
+		return nil
+	case tlsCluster != "":
+		d.clusterName = tlsCluster
+		return nil
+	default:
+		return ErrConfigInvalid
+	}
+}
+
+// extract key info for given cluster, only care about
+// sections - `clusters/contexts/users`
+func (d *Downloader) extractFields() {
+	d.cluster = d.kc.Clusters[d.clusterName]
+	d.ctxName, d.ctx = getContext(d.kc, d.clusterName)
+	d.user = getUser(d.kc, d.ctx.AuthInfo)
 }
 
 func (d *Downloader) checkCertFiles() error {
 	if d.kc == nil {
 		return ErrConfigInvalid
-	}
-
-	// FIXME: put to filter cluster
-	// NOTE: Only care about `clusters/contexts/users` sections
-	for ck, v := range d.kc.Clusters {
-		// Take a snapshot of incoming cluster info
-		// NOTE: It's ok to set `inAPIAddr` in the loop as
-		// only one element is in the map.
-		d.clusterName, d.cluster = ck, v
-		d.ctxName, d.ctx = getContext(d.kc, ck)
-		d.user = getUser(d.kc, d.ctx.AuthInfo)
 	}
 
 	// TODO: use logrus
