@@ -41,9 +41,8 @@ type merger struct {
 	localPort int
 
 	mainKC *clientcmdapi.Config
-	inKC   *clientcmdapi.Config
 
-	inUseHTTP     bool
+	inKC          *clientcmdapi.Config
 	inClusterName string
 	inCK          ClusterKeyInfo
 
@@ -98,7 +97,6 @@ func (m *merger) Merge() error {
 
 	m.inKC = res.Kc
 	m.inClusterName = res.ClusterName
-	m.inUseHTTP = res.IsHTTP
 	m.inCK = getClusterKeyInfo(m.inKC, m.inClusterName)
 
 	if err := m.doMerge(); err != nil {
@@ -184,7 +182,7 @@ func (m *merger) normalizeInName() {
 	// FIXME: update address aware of http/https
 	// update cluster's Server address
 	var schema = "https"
-	if m.inUseHTTP {
+	if m.inCK.IsHTTP {
 		schema = "http"
 	}
 

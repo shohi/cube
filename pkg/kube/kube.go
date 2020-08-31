@@ -22,6 +22,7 @@ type ClusterKeyInfo struct {
 
 	ClusterName string
 	Cluster     *clientcmdapi.Cluster
+	IsHTTP      bool // whether the schema of cluster's server address is `HTTP`
 
 	CtxName string
 	Ctx     *clientcmdapi.Context
@@ -37,6 +38,11 @@ func getClusterKeyInfo(kc *clientcmdapi.Config, clusterName string) ClusterKeyIn
 	ctxName, ctx := getContext(kc, clusterName)
 	user := getUser(kc, ctx.AuthInfo)
 
+	var isHTTP bool
+	if strings.Contains(cluster.Server, "http://") {
+		isHTTP = true
+	}
+
 	return ClusterKeyInfo{
 		Kc:          kc,
 		ClusterName: clusterName,
@@ -44,6 +50,7 @@ func getClusterKeyInfo(kc *clientcmdapi.Config, clusterName string) ClusterKeyIn
 		CtxName:     ctxName,
 		Ctx:         ctx,
 		User:        user,
+		IsHTTP:      isHTTP,
 	}
 }
 

@@ -36,8 +36,6 @@ type Downloader struct {
 
 // DownloadResult represents the download status
 type DownloadResult struct {
-	IsHTTP bool // whether the schema of server address of remote cluster address is `HTTP`
-
 	ClusterName string               // matched cluster name
 	Kc          *clientcmdapi.Config // remote kubectl config
 
@@ -67,7 +65,6 @@ func (d *Downloader) Download() (DownloadResult, error) {
 	result := DownloadResult{
 		Kc:          d.kc,
 		ClusterName: d.clusterName,
-		IsHTTP:      d.useHTTP,
 	}
 
 	return result, nil
@@ -113,6 +110,10 @@ func (d *Downloader) filterCluster(kc *clientcmdapi.Config) error {
 
 	// return immediately if only one cluster is available
 	if len(kc.Clusters) == 1 {
+		for k := range kc.Clusters {
+			d.clusterName = k
+			break
+		}
 		return nil
 	}
 
@@ -134,11 +135,9 @@ func (d *Downloader) filterCluster(kc *clientcmdapi.Config) error {
 	// prefer http over https for performance concern
 	switch {
 	case cluster != "":
-		d.useHTTP = true
 		d.clusterName = cluster
 		return nil
 	case tlsCluster != "":
-		d.useHTTP = false
 		d.clusterName = tlsCluster
 		return nil
 	default:
