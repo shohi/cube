@@ -26,15 +26,21 @@ var (
 type Downloader struct {
 	remoteAddr string
 	hostIP     string
-	kc         *clientcmdapi.Config
+
+	kc      *clientcmdapi.Config
+	useHTTP bool
 
 	clusterName string
-	cluster     *clientcmdapi.Cluster
+	ck          ClusterKeyInfo // cluster info who matches given remote addr
+}
 
-	ctxName string
-	ctx     *clientcmdapi.Context
+// DownloadResult represents the download status
+type DownloadResult struct {
+	IsHTTP bool // whether the schema of server address of remote cluster address is `HTTP`
 
-	user *clientcmdapi.AuthInfo
+	ClusterName string               // matched cluster name
+	Kc          *clientcmdapi.Config // remote kubectl config
+
 }
 
 // NewDownloader create a new remote config downloader.
@@ -46,17 +52,25 @@ func NewDownloader(remoteAddr string) *Downloader {
 	}
 }
 
+var emptyDownloadResult = DownloadResult{}
+
 // Download fetches config and cert files.
-func (d *Downloader) Download() (*clientcmdapi.Config, error) {
+func (d *Downloader) Download() (DownloadResult, error) {
 	if err := d.downloadK8sConfig(); err != nil {
-		return nil, err
+		return emptyDownloadResult, err
 	}
 
 	if err := d.checkCertFiles(); err != nil {
-		return nil, err
+		return emptyDownloadResult, err
 	}
 
-	return d.kc, nil
+	result := DownloadResult{
+		Kc:          d.kc,
+		ClusterName: d.clusterName,
+		IsHTTP:      d.useHTTP,
+	}
+
+	return result, nil
 }
 
 func (d *Downloader) downloadK8sConfig() error {
@@ -81,7 +95,7 @@ func (d *Downloader) downloadK8sConfig() error {
 		return err
 	}
 
-	d.extractFields()
+	d.ck = getClusterKeyInfo(d.kc, d.clusterName)
 
 	return nil
 }
@@ -120,22 +134,16 @@ func (d *Downloader) filterCluster(kc *clientcmdapi.Config) error {
 	// prefer http over https for performance concern
 	switch {
 	case cluster != "":
+		d.useHTTP = true
 		d.clusterName = cluster
 		return nil
 	case tlsCluster != "":
+		d.useHTTP = false
 		d.clusterName = tlsCluster
 		return nil
 	default:
 		return ErrConfigInvalid
 	}
-}
-
-// extract key info for given cluster, only care about
-// sections - `clusters/contexts/users`
-func (d *Downloader) extractFields() {
-	d.cluster = d.kc.Clusters[d.clusterName]
-	d.ctxName, d.ctx = getContext(d.kc, d.clusterName)
-	d.user = getUser(d.kc, d.ctx.AuthInfo)
 }
 
 func (d *Downloader) checkCertFiles() error {
@@ -147,21 +155,21 @@ func (d *Downloader) checkCertFiles() error {
 	// log.Printf("=====> cluster: [%v]\n", d.cluster)
 
 	// check if token set. If token is set, no cert file/data is needed.
-	if len(d.user.Token) > 0 {
+	if len(d.ck.User.Token) > 0 {
 		return nil
 	}
 
 	// k8s > 1.7
-	if len(d.cluster.CertificateAuthorityData) > 0 {
-		if len(d.user.ClientCertificateData) == 0 ||
-			len(d.user.ClientKeyData) == 0 {
+	if len(d.ck.Cluster.CertificateAuthorityData) > 0 {
+		if len(d.ck.User.ClientCertificateData) == 0 ||
+			len(d.ck.User.ClientKeyData) == 0 {
 			return ErrRemoteInvalidUser
 		}
 		return nil
 	}
 
 	// k8s <= 1.7
-	if len(d.cluster.CertificateAuthority) > 0 {
+	if len(d.ck.Cluster.CertificateAuthority) > 0 {
 		// Download cert files
 		return d.downloadCertFiles()
 	}
@@ -170,7 +178,7 @@ func (d *Downloader) checkCertFiles() error {
 }
 
 func (d *Downloader) downloadCertFiles() error {
-	if len(d.cluster.CertificateAuthority) == 0 {
+	if len(d.ck.Cluster.CertificateAuthority) == 0 {
 		return nil
 	}
 
@@ -179,39 +187,39 @@ func (d *Downloader) downloadCertFiles() error {
 	err := scp.TransferFile(scp.TransferConfig{
 		LocalPath:  localAuthPath,
 		RemoteAddr: d.remoteAddr,
-		RemotePath: d.cluster.CertificateAuthority,
+		RemotePath: d.ck.Cluster.CertificateAuthority,
 	})
 
 	if err != nil {
 		return err
 	}
-	d.cluster.CertificateAuthority = localAuthPath
+	d.ck.Cluster.CertificateAuthority = localAuthPath
 
 	// client crt
 	localClientCertPath := base.GenLocalCertClientPath(d.remoteAddr)
 	err = scp.TransferFile(scp.TransferConfig{
 		LocalPath:  localClientCertPath,
 		RemoteAddr: d.remoteAddr,
-		RemotePath: d.user.ClientCertificate,
+		RemotePath: d.ck.User.ClientCertificate,
 	})
 
 	if err != nil {
 		return err
 	}
-	d.user.ClientCertificate = localClientCertPath
+	d.ck.User.ClientCertificate = localClientCertPath
 
 	// client key
 	localClientKeyPath := base.GenLocalCertClientKeyPath(d.remoteAddr)
 	err = scp.TransferFile(scp.TransferConfig{
 		LocalPath:  localClientKeyPath,
 		RemoteAddr: d.remoteAddr,
-		RemotePath: d.user.ClientKey,
+		RemotePath: d.ck.User.ClientKey,
 	})
 
 	if err != nil {
 		return err
 	}
-	d.user.ClientKey = localClientKeyPath
+	d.ck.User.ClientKey = localClientKeyPath
 
 	return nil
 }

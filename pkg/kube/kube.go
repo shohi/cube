@@ -15,6 +15,38 @@ const (
 	DefaultHost = "kubernetes"
 )
 
+// ClusterKeyInfo contains key info about a k8s cluster from given
+// kubectl config.
+type ClusterKeyInfo struct {
+	Kc *clientcmdapi.Config // config where the cluster info belongs to
+
+	ClusterName string
+	Cluster     *clientcmdapi.Cluster
+
+	CtxName string
+	Ctx     *clientcmdapi.Context
+
+	User *clientcmdapi.AuthInfo
+}
+
+// getClusterKeyInfo extracts key infos for given cluster, only care about
+// sections - `clusters/contexts/users'. Call should guarantee
+// the cluster name exist in the kubectl config
+func getClusterKeyInfo(kc *clientcmdapi.Config, clusterName string) ClusterKeyInfo {
+	cluster := kc.Clusters[clusterName]
+	ctxName, ctx := getContext(kc, clusterName)
+	user := getUser(kc, ctx.AuthInfo)
+
+	return ClusterKeyInfo{
+		Kc:          kc,
+		ClusterName: clusterName,
+		Cluster:     cluster,
+		CtxName:     ctxName,
+		Ctx:         ctx,
+		User:        user,
+	}
+}
+
 func getRemoteAddr(user, ip string) string {
 	if user == "" {
 		return ip
