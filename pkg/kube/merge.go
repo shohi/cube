@@ -41,18 +41,12 @@ type merger struct {
 	localPort int
 
 	mainKC *clientcmdapi.Config
-	inKC   *clientcmdapi.Config
 
+	inKC          *clientcmdapi.Config
 	inClusterName string
-	inCluster     *clientcmdapi.Cluster
-
-	inCtxName string
-	inCtx     *clientcmdapi.Context
-
-	inUser *clientcmdapi.AuthInfo
+	inCK          ClusterKeyInfo
 
 	updatedClusterName string
-	inAPIServer        string
 }
 
 func NewMerger(opts MergeOptions) Merger {
@@ -67,24 +61,43 @@ func NewMerger(opts MergeOptions) Merger {
 	return m
 }
 
+func (m *merger) loadMainKC() error {
+	configPath := base.GetLocalKubePath()
+	exist, isDir := FileExists(configPath)
+
+	if !exist {
+		m.mainKC = clientcmdapi.NewConfig()
+		return nil
+	} else if isDir {
+		return fmt.Errorf("config path [%v] is a dir, not file", configPath)
+	}
+
+	var err error
+	m.mainKC, err = Load(base.GetLocalKubePath())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (m *merger) Merge() error {
 	if m.opts.NameSuffix == "" {
 		return ErrEmptyNameSuffix
 	}
 
-	mainKC, err := Load(base.GetLocalKubePath())
-	if err != nil {
+	if err := m.loadMainKC(); err != nil {
 		return err
 	}
-	m.mainKC = mainKC
 
-	inKC, err := m.d.Download()
+	res, err := m.d.Download()
 	if err != nil {
 		return err
 	}
 
-	m.inKC = inKC
-	m.extractInKC()
+	m.inKC = res.Kc
+	m.inClusterName = res.ClusterName
+	m.inCK = getClusterKeyInfo(m.inKC, m.inClusterName)
 
 	if err := m.doMerge(); err != nil {
 		return err
@@ -98,26 +111,11 @@ func (m *merger) LocalPort() int {
 }
 
 func (m *merger) RemoteAPIAddr() string {
-	return genRemoteAPIAddr(m.opts.RemoteAddr, m.inAPIServer)
+	return genRemoteAPIAddr(m.opts.RemoteAddr, m.inCK.Cluster.Server)
 }
 
 func (m *merger) Result() *clientcmdapi.Config {
 	return m.mainKC
-}
-
-// extractInKC extracts Cluster/User/Context info from `inKC`.
-func (m *merger) extractInKC() {
-	// NOTE: Only care about `clusters/contexts/users` sections
-	for ck, v := range m.inKC.Clusters {
-		// Take a snapshot of incoming cluster info
-		// NOTE: It's ok to set `inAPIAddr` in the loop as
-		// only one element is in the map.
-		m.inClusterName, m.inCluster = ck, v
-		m.inCtxName, m.inCtx = getContext(m.inKC, ck)
-		m.inUser = getUser(m.inKC, m.inCtx.AuthInfo)
-
-		m.inAPIServer = v.Server
-	}
 }
 
 func (m *merger) checkLocalPort() error {
@@ -134,7 +132,7 @@ func (m *merger) checkLocalPort() error {
 }
 
 func (m *merger) checkExists() error {
-	cluster, found := findCluster(m.mainKC, m.inCluster)
+	cluster, found := findCluster(m.mainKC, m.inCK.Cluster)
 	if found && !m.opts.Force {
 		return errors.Wrapf(ErrConfigAlreadyMerged, "cluster: [%v]", cluster)
 	}
@@ -157,9 +155,9 @@ func (m *merger) doMerge() error {
 	}
 
 	// check
-	m.mainKC.Clusters[m.inCtx.Cluster] = m.inCluster
-	m.mainKC.AuthInfos[m.inCtx.AuthInfo] = m.inUser
-	m.mainKC.Contexts[m.inCtxName] = m.inCtx
+	m.mainKC.Clusters[m.inCK.Ctx.Cluster] = m.inCK.Cluster
+	m.mainKC.AuthInfos[m.inCK.Ctx.AuthInfo] = m.inCK.User
+	m.mainKC.Contexts[m.inCK.CtxName] = m.inCK.Ctx
 
 	return nil
 }
@@ -171,31 +169,37 @@ func (m *merger) doMerge() error {
 // 3. context name: `kubernetes-admin` + `@` + `remoteIP:remotePort` + `-` + nameSuffix
 func (m *merger) normalizeInName() {
 	remoteHost := base.GetHost(m.opts.RemoteAddr)
-	remotePort, _ := base.GetPort(m.inAPIServer)
+	remotePort, _ := base.GetPort(m.inCK.Cluster.Server)
 
-	m.inCtx.AuthInfo = "kubernetes-" + m.opts.NameSuffix
-	m.inCtx.Cluster = "kubernetes-" + m.opts.NameSuffix
-	m.inCtxName = fmt.Sprintf("%s@%s:%v-%s", "kubernetes-admin",
+	m.inCK.Ctx.AuthInfo = "kubernetes-" + m.opts.NameSuffix
+	m.inCK.Ctx.Cluster = "kubernetes-" + m.opts.NameSuffix
+	m.inCK.CtxName = fmt.Sprintf("%s@%s:%v-%s", "kubernetes-admin",
 		remoteHost, remotePort,
 		m.opts.NameSuffix)
 
-	m.updatedClusterName = m.inCtx.Cluster
+	m.updatedClusterName = m.inCK.Ctx.Cluster
 
-	// update cluster's Server address
-	m.inCluster.Server = fmt.Sprintf("https://%s:%d", DefaultHost, m.localPort)
+	// update server address aware of http/https
+	var schema = "https"
+	if m.inCK.IsHTTP {
+		schema = "http"
+	}
+
+	m.inCK.Cluster.Server = fmt.Sprintf("%s://%s:%d",
+		schema, DefaultHost, m.localPort)
 }
 
 func (m *merger) checkBeforeUpdate() error {
-	if _, ok := m.mainKC.Clusters[m.inCtx.Cluster]; ok {
-		return errors.Wrapf(ErrClusterAlreadyExists, "name: %v", m.inCtx.Cluster)
+	if _, ok := m.mainKC.Clusters[m.inCK.Ctx.Cluster]; ok {
+		return errors.Wrapf(ErrClusterAlreadyExists, "name: %v", m.inCK.Ctx.Cluster)
 	}
 
-	if _, ok := m.mainKC.AuthInfos[m.inCtx.AuthInfo]; ok {
-		return errors.Wrapf(ErrUserAlreadyExists, "name: %v", m.inCtx.AuthInfo)
+	if _, ok := m.mainKC.AuthInfos[m.inCK.Ctx.AuthInfo]; ok {
+		return errors.Wrapf(ErrUserAlreadyExists, "name: %v", m.inCK.Ctx.AuthInfo)
 	}
 
-	if _, ok := m.mainKC.Contexts[m.inCtxName]; ok {
-		return errors.Wrapf(ErrContextAlreadyExists, "name: %v", m.inCtxName)
+	if _, ok := m.mainKC.Contexts[m.inCK.CtxName]; ok {
+		return errors.Wrapf(ErrContextAlreadyExists, "name: %v", m.inCK.CtxName)
 	}
 
 	return nil

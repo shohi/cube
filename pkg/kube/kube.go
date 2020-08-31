@@ -15,6 +15,45 @@ const (
 	DefaultHost = "kubernetes"
 )
 
+// ClusterKeyInfo contains key info about a k8s cluster from given
+// kubectl config.
+type ClusterKeyInfo struct {
+	Kc *clientcmdapi.Config // config where the cluster info belongs to
+
+	ClusterName string
+	Cluster     *clientcmdapi.Cluster
+	IsHTTP      bool // whether the schema of cluster's server address is `HTTP`
+
+	CtxName string
+	Ctx     *clientcmdapi.Context
+
+	User *clientcmdapi.AuthInfo
+}
+
+// getClusterKeyInfo extracts key infos for given cluster, only care about
+// sections - `clusters/contexts/users'. Call should guarantee
+// the cluster name exist in the kubectl config
+func getClusterKeyInfo(kc *clientcmdapi.Config, clusterName string) ClusterKeyInfo {
+	cluster := kc.Clusters[clusterName]
+	ctxName, ctx := getContext(kc, clusterName)
+	user := getUser(kc, ctx.AuthInfo)
+
+	var isHTTP bool
+	if strings.Contains(cluster.Server, "http://") {
+		isHTTP = true
+	}
+
+	return ClusterKeyInfo{
+		Kc:          kc,
+		ClusterName: clusterName,
+		Cluster:     cluster,
+		CtxName:     ctxName,
+		Ctx:         ctx,
+		User:        user,
+		IsHTTP:      isHTTP,
+	}
+}
+
 func getRemoteAddr(user, ip string) string {
 	if user == "" {
 		return ip
@@ -111,15 +150,6 @@ func FindContextsByName(kc *clientcmdapi.Config, name string, filter func(string
 
 // Load reads kubeconfig from file
 func Load(configPath string) (*clientcmdapi.Config, error) {
-	exist, isDir := FileExists(configPath)
-
-	if !exist {
-		conf := clientcmdapi.NewConfig()
-		return conf, nil
-	} else if isDir {
-		return nil, fmt.Errorf("config path [%v] is a dir, not file", configPath)
-	}
-
 	content, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return nil, err
