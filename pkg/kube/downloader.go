@@ -31,7 +31,7 @@ type Downloader struct {
 	useHTTP bool
 
 	clusterName string
-	ck          ClusterKeyInfo // cluster info who matches given remote addr
+	ck          ClusterKeyInfo // key info of cluster who matches given remote addr
 }
 
 // DownloadResult represents the download status

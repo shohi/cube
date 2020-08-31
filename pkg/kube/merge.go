@@ -179,8 +179,7 @@ func (m *merger) normalizeInName() {
 
 	m.updatedClusterName = m.inCK.Ctx.Cluster
 
-	// FIXME: update address aware of http/https
-	// update cluster's Server address
+	// update server address aware of http/https
 	var schema = "https"
 	if m.inCK.IsHTTP {
 		schema = "http"
