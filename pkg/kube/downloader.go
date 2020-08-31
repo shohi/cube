@@ -27,8 +27,7 @@ type Downloader struct {
 	remoteAddr string
 	hostIP     string
 
-	kc      *clientcmdapi.Config
-	useHTTP bool
+	kc *clientcmdapi.Config
 
 	clusterName string
 	ck          ClusterKeyInfo // key info of cluster who matches given remote addr
