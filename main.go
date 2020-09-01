@@ -21,7 +21,9 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/shohi/cube/cmd"
+import (
+	"github.com/shohi/cube/cmd"
+)
 
 func main() {
 	cmd.Execute()
