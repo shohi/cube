@@ -63,7 +63,7 @@ func NewMerger(opts MergeOptions) Merger {
 
 func (m *merger) loadMainKC() error {
 	configPath := base.GetLocalKubePath()
-	exist, isDir := FileExists(configPath)
+	exist, isDir := base.FileExists(configPath)
 
 	if !exist {
 		m.mainKC = clientcmdapi.NewConfig()
