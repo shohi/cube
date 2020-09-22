@@ -150,13 +150,15 @@ func (m *merger) doMerge() error {
 	}
 
 	m.normalizeInName()
+
 	if err := m.checkBeforeUpdate(); err != nil {
 		return err
 	}
 
-	// check
 	m.mainKC.Clusters[m.inCK.Ctx.Cluster] = m.inCK.Cluster
-	m.mainKC.AuthInfos[m.inCK.Ctx.AuthInfo] = m.inCK.User
+	if m.inCK.User != nil {
+		m.mainKC.AuthInfos[m.inCK.Ctx.AuthInfo] = m.inCK.User
+	}
 	m.mainKC.Contexts[m.inCK.CtxName] = m.inCK.Ctx
 
 	return nil
