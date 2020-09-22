@@ -152,6 +152,12 @@ func (d *Downloader) checkCertFiles() error {
 	// TODO: use logrus
 	// log.Printf("=====> cluster: [%v]\n", d.cluster)
 
+	// If no related user info, just return. Maybe the cluster doesn't
+	// need any authentication.
+	if d.ck.User == nil {
+		return nil
+	}
+
 	// check if token set. If token is set, no cert file/data is needed.
 	if len(d.ck.User.Token) > 0 {
 		return nil

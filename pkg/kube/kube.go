@@ -125,7 +125,8 @@ func getContext(kc *clientcmdapi.Config, cluster string) (string, *clientcmdapi.
 func getUser(kc *clientcmdapi.Config, userName string) *clientcmdapi.AuthInfo {
 	user, ok := kc.AuthInfos[userName]
 	if !ok {
-		panic(fmt.Sprintf("failed to extract auth info with given user - %v", userName))
+		// TODO: add WARN
+		fmt.Printf("[WARN] no auth info with given user - %v\n", userName)
 	}
 
 	return user
