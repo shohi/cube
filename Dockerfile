@@ -1,12 +1,11 @@
 # compile stage
-ARG GO_VERSION=1.13.5
+ARG GO_VERSION=1.15.2
 FROM golang:${GO_VERSION} as immediate
 
-# download the source
-WORKDIR /go/src/github.com/shohi/cube
-RUN git clone https://github.com/shohi/cube.git .
+# build binary
+COPY . /repo/cube
+WORKDIR /repo/cube
 
-# binary build
 RUN CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64 \
@@ -14,7 +13,7 @@ RUN CGO_ENABLED=0 \
 
 # final docker image building stage
 FROM golang:${GO_VERSION} as builder
-COPY --from=immediate /go/src/github.com/shohi/cube/cube /app/cube
+COPY --from=immediate /repo/cube/cube /app/cube
 
 VOLUME /root/.config/cube/cache
 
