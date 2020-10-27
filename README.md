@@ -84,3 +84,9 @@ docker run --rm -it \
 1. `cube` leverages `SSH` and `SCP` for transfering files from remote cluster. Make sure SSH correctly configured.
 
 2. Only AWS cluster is supported now.
+
+## FAQ
+
+1. channel 2: open failed: connect failed: Connection refused
+
+> make sure the target service is up and running
