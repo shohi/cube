@@ -7,7 +7,7 @@ kubectl configuration manipulation tool, which fetches `~/.kube/config` from rem
 ### `~/.ssh/config`
 
 ```terminal
-# add SSH dynamic port forwarding
+# add SSH dynamic port forwarding, where `SSH_VIA` is in the format of "<user>@<public-ip>"
 # alias aws_proxy='ssh -qTfnN -D 127.0.0.1:62222 ${SSH_VIA}'
 
 # Rules for Remote
@@ -54,6 +54,7 @@ Available Commands:
   help        Help about any command
   history     show cube commands history
   list        list all clusters
+  show        show local kubectl config
   version     print version info
 
 Flags:
@@ -75,7 +76,7 @@ $> kubectx
 docker run --rm -it \
     -v $PWD/.ssh:/root/.ssh \
     -v $PWD/.kube:/root/.kube \
-    cube:0.1.0
+    cube:0.4.1
 
 ```
 

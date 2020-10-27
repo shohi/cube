@@ -15,6 +15,45 @@ const (
 	DefaultHost = "kubernetes"
 )
 
+// ClusterKeyInfo contains key info about a k8s cluster from given
+// kubectl config.
+type ClusterKeyInfo struct {
+	Kc *clientcmdapi.Config // config where the cluster info belongs to
+
+	ClusterName string
+	Cluster     *clientcmdapi.Cluster
+	IsHTTP      bool // whether the schema of cluster's server address is `HTTP`
+
+	CtxName string
+	Ctx     *clientcmdapi.Context
+
+	User *clientcmdapi.AuthInfo
+}
+
+// getClusterKeyInfo extracts key infos for given cluster, only care about
+// sections - `clusters/contexts/users'. Call should guarantee
+// the cluster name exist in the kubectl config
+func getClusterKeyInfo(kc *clientcmdapi.Config, clusterName string) ClusterKeyInfo {
+	cluster := kc.Clusters[clusterName]
+	ctxName, ctx := getContext(kc, clusterName)
+	user := getUser(kc, ctx.AuthInfo)
+
+	var isHTTP bool
+	if strings.Contains(cluster.Server, "http://") {
+		isHTTP = true
+	}
+
+	return ClusterKeyInfo{
+		Kc:          kc,
+		ClusterName: clusterName,
+		Cluster:     cluster,
+		CtxName:     ctxName,
+		Ctx:         ctx,
+		User:        user,
+		IsHTTP:      isHTTP,
+	}
+}
+
 func getRemoteAddr(user, ip string) string {
 	if user == "" {
 		return ip
@@ -86,7 +125,8 @@ func getContext(kc *clientcmdapi.Config, cluster string) (string, *clientcmdapi.
 func getUser(kc *clientcmdapi.Config, userName string) *clientcmdapi.AuthInfo {
 	user, ok := kc.AuthInfos[userName]
 	if !ok {
-		panic(fmt.Sprintf("failed to extract auth info with given user - %v", userName))
+		// TODO: add WARN
+		fmt.Printf("[WARN] no auth info with given user - %v\n", userName)
 	}
 
 	return user
