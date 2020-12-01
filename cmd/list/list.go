@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ import (
 
 // Options for list subcommand
 type Options struct {
-	Name string // name filter
+	Filter string // name filter
 }
 
 // New creates a new `list` subcommand.
@@ -25,19 +26,14 @@ func New() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
-		Short:   "list clusters",
+		Short:   "list clusters <name>",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l, err := kube.ListAllClusters()
 			if err != nil {
 				log.Printf("list clusters error, err: %v\n", err)
 				return err
 			}
-
-			if len(args) > 0 {
-				opts.Name = args[0]
-			}
-
-			selected := filter(l, ByName(opts.Name))
+			selected := filter(l, ByName(opts.Filter))
 
 			content, _ := json.MarshalIndent(selected, "", "  ")
 			fmt.Println(string(content))
@@ -45,7 +41,7 @@ func New() *cobra.Command {
 		},
 	}
 
-	// setupFlags(c, opts)
+	setupFlags(c, opts)
 
 	return c
 }
@@ -68,15 +64,17 @@ func EnableAll(_ kube.ClusterInfo) bool {
 	return true
 }
 
-func ByName(name string) FilterFunc {
-	n := strings.TrimSpace(name)
+func ByName(pattern string) FilterFunc {
+	p := strings.TrimSpace(pattern)
 
-	if n == "" {
+	if p == "" {
 		return EnableAll
 	}
 
+	re := regexp.MustCompile(".*" + p + ".*")
+
 	return func(c kube.ClusterInfo) bool {
-		return strings.Contains(c.Name, n)
+		return re.MatchString(c.Name)
 	}
 }
 
@@ -84,5 +82,5 @@ func ByName(name string) FilterFunc {
 func setupFlags(cmd *cobra.Command, opts *Options) {
 	flagSet := cmd.Flags()
 
-	flagSet.StringVar(&opts.Name, "name", "", "cluster name pattern")
+	flagSet.StringVarP(&opts.Filter, "filter", "f", "", "cluster name pattern, default list all")
 }
